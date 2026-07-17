@@ -1,0 +1,89 @@
+[project]
+name = "design-system-chart-exporter"
+version = "0.1.0"
+description = "A FastAPI service for generating and exporting, ONS Design System chart images"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "ONSdigital" }]
+requires-python = ">=3.14"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+# :TODO: Remove pylint when ruff supports all pylint rules
+dev = [
+    "mypy>=2.3.0",
+    "pre-commit>=4.6.0",
+    "pylint>=4.0.6",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.15.22",
+]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+
+[tool.ruff.lint]
+select = [
+    # Enabling ALL is not recommended it will implicitly enable new rules after upgrade.
+    # "ALL",
+
+    # Ruff rules: https://docs.astral.sh/ruff/rules/
+
+    "E",      # pycodestyle erros
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "UP",     # pyupgrade
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "C4",     # flake8-comprehensions
+    "S",      # flake8-bandit
+    "D",      # pydocstyle - Enforce existing docstrings only
+    "C90",    # mccabe
+    "RUF",    # Ruff specific rules
+
+    # PL - Pylint is only partially supported, we also use the pylint tool to catch all the rules.
+    # It is enabled here to take advantage of the ruff's speed.
+    "PL",
+]
+
+ignore = [
+    # Conflicts with google docstring style
+    "D205",
+    # Allow missing docstring, remove to enforce docstrings across the board
+    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",
+    # indentation contains tabs
+    "W191",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**/*.py" = [
+    # Allow use of assert statements in tests
+    "S101",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+# Global mypy options
+no_implicit_optional = "True"
+ignore_missing_imports = "True"
+warn_unused_configs = "True"
+warn_no_return = "False"
+warn_unused_ignores = "True"
+warn_return_any = "True"
+warn_redundant_casts = "True"
+disallow_untyped_defs = "True"
+disallow_untyped_calls = "True"
+disallow_incomplete_defs = "True"
+strict_equality = "True"

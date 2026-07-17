@@ -1,0 +1,23 @@
+# Changes here will be overwritten by Copier
+# Do not modify this file directly
+# To update the project using the original template, run make copier-update
+_commit: v2.1.0
+_src_path: gh:ONSdigital/ons-python-template
+code_owner: '@ONSdigital/dissemination-cms'
+confirm_uv_prerelease: true
+default_branch: main
+dependabot_open_pull_requests_limit: 3
+dismiss_stale_reviews: true
+enable_dependabot_version_updates: true
+module_name: app
+package_manager: uv
+repo_settings: custom
+repository_description: A FastAPI service for generating and exporting, ONS Design
+    System chart images
+repository_name: design-system-chart-exporter
+repository_owner: ONSdigital
+repository_visibility: public
+require_conversation_resolution: true
+require_last_push_approval: true
+required_approving_review_count: 2
+set_up_git_repo: true

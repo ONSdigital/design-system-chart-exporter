@@ -11,7 +11,7 @@ all: ## Show the available make targets.
 clean: ## Clean the temporary files.
 	rm -rf .pytest_cache
 	rm -rf .mypy_cache
-	rm -rf .coverage
+	rm -f .coverage
 	rm -rf .ruff_cache
 	rm -rf megalinter-reports
 
@@ -21,7 +21,7 @@ format:  ## Format the code.
 	uv run ruff format .
 
 .PHONY: lint
-lint:  ## Run all linters (ruff/pylint/mypy).
+lint:  ## Run all linters (ruff/mypy).
 	uv run ruff check .
 	uv run ruff format --check .
 	make mypy
@@ -43,8 +43,8 @@ mypy:  ## Run mypy.
 	uv run mypy app
 
 .PHONY: run
-run:  ## Run the python script
-	uv run python -m app
+run:  ## Run the app with uvicorn.
+	uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 .PHONY: install
 install:  ## Install the dependencies excluding dev.
@@ -61,3 +61,37 @@ megalint:  ## Run the mega-linter. Use LINTER=NAME to run only one.
 		-v $(shell pwd):/tmp/lint:rw \
 		$(if $(LINTER),-e ENABLE_LINTERS=$(LINTER),) \
 		ghcr.io/oxsecurity/megalinter:v9
+
+# Docker and docker compose make commands
+
+.PHONY: compose-build
+compose-build:  ## Build the main application's Docker container
+	docker compose build
+
+.PHONY: compose-pull
+compose-pull:  ## Pull Docker containers
+	docker compose pull
+
+.PHONY: compose-up
+compose-up:  ## Start Docker containers
+	docker compose up --detach
+
+.PHONY: compose-down
+compose-down:  ## Stop and remove Docker containers and volumes
+	docker compose down --volumes
+
+.PHONY: compose-stop
+compose-stop:  ## Stop Docker containers
+	docker compose stop
+
+.PHONY: docker-shell
+docker-shell:  ## Shell into the main application's Docker container
+	docker compose exec web bash
+
+# Aliases
+.PHONY: start
+start: compose-up
+.PHONY: stop
+stop: compose-stop
+.PHONY: shell
+shell: docker-shell

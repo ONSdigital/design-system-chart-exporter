@@ -1,0 +1,14 @@
+---
+services:
+  web:
+    build:
+      context: .
+      target: dev
+    ports:
+      - ${WEB_PORT:-8000}:8000
+    volumes:
+      - ./:/app
+      - venv:/app/.venv
+
+volumes:
+  venv:

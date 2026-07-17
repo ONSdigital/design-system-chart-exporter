@@ -1,26 +1,4 @@
-from decimal import Decimal
-
-from app.calculator import Calculator
-
-
-def main() -> None:
-    calculator = Calculator()
-
-    total = calculator.add(Decimal("10.50"))
-    print(f"After add: {total}")
-
-    total = calculator.subtract(Decimal("2.25"))
-    print(f"After subtract: {total}")
-
-    total = calculator.multiply(Decimal("3"))
-    print(f"After multiply: {total}")
-
-    total = calculator.divide(Decimal("4"))
-    print(f"After divide: {total}")
-
-    calculator.reset_cumulative_total()
-    print(f"After reset: {calculator.cumulative_total}")
-
+import uvicorn
 
 if __name__ == "__main__":
-    main()
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)  # noqa: S104

@@ -9,6 +9,9 @@ APPLY_FIXES: all
 
 FORMATTERS_DISABLE_ERRORS: false
 
+# Don't look for secrets in the .venv folder
+REPOSITORY_KINGFISHER_ARGUMENTS: "--exclude '.venv'"
+
 # If you use ENABLE variable, all other languages/formats/tooling-formats will
 # be disabled by default
 # ENABLE:

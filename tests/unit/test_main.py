@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+
 def test_liveness(client):
     """Test the liveness endpoint."""
     response = client.get("/")

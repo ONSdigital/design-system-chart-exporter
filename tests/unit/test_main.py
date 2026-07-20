@@ -1,9 +1,19 @@
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 
-def test_liveness(client):
-    """Test the liveness endpoint."""
-    response = client.get("/")
+def test_health(client):
+    """Test the health endpoint."""
+    now = datetime.now(UTC)
+    response = client.get("/health")
 
     assert response.status_code == HTTPStatus.OK
-    assert response.json() == {"message": "Chart generator is up and running"}
+    body = response.json()
+    assert body["status"] == "OK"
+    assert body["checks"] == []
+    assert body["version"]["version"] == "0.1.0"
+    assert body["version"]["language"] == "python"
+
+    # Sense-check that the start_time is in the past and uptime is positive
+    assert datetime.fromisoformat(body["start_time"]) <= now
+    assert body["uptime"] > 0

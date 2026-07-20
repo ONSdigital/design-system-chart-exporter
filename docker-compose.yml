@@ -5,7 +5,7 @@ services:
       context: .
       target: dev
     ports:
-      - ${WEB_PORT:-8000}:8000
+      - ${WEB_PORT:-30300}:30300
     volumes:
       - ./:/app
       - venv:/app/.venv

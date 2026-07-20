@@ -21,10 +21,11 @@ format:  ## Format the code.
 	uv run ruff format .
 
 .PHONY: lint
-lint:  ## Run all linters (ruff/mypy).
+lint:  ## Run all linters (ruff/mypy/pylint).
 	uv run ruff check .
 	uv run ruff format --check .
 	make mypy
+	make pylint
 
 .PHONY: pre-commit
 pre-commit:  ## Run all pre-commit hooks across the repository.
@@ -42,9 +43,13 @@ test:  ## Run the tests and check coverage.
 mypy:  ## Run mypy.
 	uv run mypy app
 
+.PHONY: pylint
+pylint:  ## Run pylint.
+	uv run pylint app
+
 .PHONY: run
 run:  ## Run the app with uvicorn.
-	uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+	uv run uvicorn app.main:app --host 0.0.0.0 --port 30300 --reload
 
 .PHONY: install
 install:  ## Install the dependencies excluding dev.

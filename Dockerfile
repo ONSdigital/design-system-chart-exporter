@@ -16,7 +16,7 @@ RUN apt-get --quiet --yes update \
     && apt-get --quiet --yes install --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /uvx /bin/
 
 RUN useradd --create-home exporter \
     && chown exporter:exporter /app
@@ -30,10 +30,10 @@ USER exporter
 
 COPY --chown=exporter:exporter pyproject.toml uv.lock ./
 
-EXPOSE 8000
+EXPOSE 30300
 
 HEALTHCHECK --interval=3s --timeout=2s --start-period=5s --retries=3 \
-    CMD curl --fail http://localhost:8000/ || exit 1
+    CMD curl --fail http://localhost:30300/health || exit 1
 
 #############
 # dev stage #
@@ -47,7 +47,7 @@ FROM base AS dev
 
 RUN uv sync --frozen
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "30300", "--reload"]
 
 #############
 # web stage #
@@ -61,4 +61,4 @@ RUN uv sync --frozen --no-install-project --no-dev
 
 COPY --chown=exporter:exporter app ./app
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["gunicorn", "app.main:app", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:30300"]

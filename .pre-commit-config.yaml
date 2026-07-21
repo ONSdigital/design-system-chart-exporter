@@ -49,8 +49,4 @@ repos:
         language: system
         entry: make pylint
         types: [python]
-        args:
-          - "--reports=n" # only display messages
-          - "--output-format=colorized"
-          - "--rcfile=.pylintrc"
-          - "-j 0" # detect number of processors available to use
+        pass_filenames: false

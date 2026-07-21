@@ -1,3 +1,5 @@
+"""FastAPI application entrypoint."""
+
 import platform
 import tomllib
 from datetime import UTC, datetime
@@ -7,16 +9,24 @@ from typing import Final, Literal
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from app.logging import configure_logging, get_logger
+
 app = FastAPI()
 
 _START_TIME: Final = datetime.now(UTC)
 _PYPROJECT_PATH: Final = Path(__file__).parents[1] / "pyproject.toml"
-_VERSION: Final = tomllib.loads(_PYPROJECT_PATH.read_text())["project"]["version"]
+_PROJECT: Final = tomllib.loads(_PYPROJECT_PATH.read_text())["project"]
+_VERSION: Final = _PROJECT["version"]
+
+configure_logging()
+log = get_logger(namespace=_PROJECT["name"])
 
 Status = Literal["OK", "WARNING", "CRITICAL"]
 
 
 class VersionInfo(BaseModel):
+    """Version details for the running service."""
+
     version: str
     git_commit: str
     build_time: str
@@ -25,6 +35,8 @@ class VersionInfo(BaseModel):
 
 
 class Check(BaseModel):
+    """Result of an individual health check."""
+
     name: str
     status: Status
     status_code: int | None = None
@@ -35,6 +47,8 @@ class Check(BaseModel):
 
 
 class HealthResponse(BaseModel):
+    """Response body for the health check endpoint."""
+
     status: Status
     version: VersionInfo
     uptime: int
@@ -48,6 +62,7 @@ def health() -> HealthResponse:
 
     See: https://github.com/ONSdigital/dp-standards/blob/main/HEALTH_CHECK_SPECIFICATION.md
     """
+    log.info("health check requested")
     now = datetime.now(UTC)
     return HealthResponse(
         status="OK",

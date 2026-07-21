@@ -45,7 +45,7 @@ mypy:  ## Run mypy.
 
 .PHONY: pylint
 pylint:  ## Run pylint.
-	uv run pylint app
+	uv run pylint app --reports=n --output-format=colorized --rcfile=.pylintrc -j 0
 
 .PHONY: run
 run:  ## Run the app with uvicorn.

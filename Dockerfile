@@ -32,9 +32,6 @@ COPY --chown=exporter:exporter pyproject.toml uv.lock ./
 
 EXPOSE 30300
 
-HEALTHCHECK --interval=3s --timeout=2s --start-period=5s --retries=3 \
-    CMD curl --fail http://localhost:30300/health || exit 1
-
 #############
 # dev stage #
 #############

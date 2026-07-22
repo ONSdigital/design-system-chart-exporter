@@ -93,6 +93,10 @@ compose-stop:  ## Stop Docker containers
 docker-shell:  ## Shell into the main application's Docker container
 	docker compose exec web bash
 
+.PHONY: docker-logs
+docker-logs:  ## Show logs from the main application's Docker container
+	docker compose logs --follow web
+
 # Aliases
 .PHONY: start
 start: compose-up

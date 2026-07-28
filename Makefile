@@ -67,7 +67,7 @@ megalint:  ## Run the mega-linter. Use LINTER=NAME to run only one.
 		$(if $(LINTER),-e ENABLE_LINTERS=$(LINTER),) \
 		ghcr.io/oxsecurity/megalinter:v9
 
-# Docker and docker compose make commands
+# Docker compose make commands
 
 .PHONY: compose-build
 compose-build:  ## Build the main application's Docker container

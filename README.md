@@ -110,7 +110,9 @@ Various tools are used to lint and format the code in this project.
 
 #### Python
 
-The project uses [Ruff](https://github.com/astral-sh/ruff) for linting and formatting, [mypy](https://mypy-lang.org/) for type checking, and [pylint](https://pylint.pycqa.org/) for additional linting of the Python code.
+The project uses [Ruff](https://github.com/astral-sh/ruff) for linting and
+formatting, [mypy](https://mypy-lang.org/) for type checking, and
+[pylint](https://pylint.pycqa.org/) for additional linting of the Python code.
 
 The tools are configured using the `pyproject.toml` file and `.pylintrc`.
 

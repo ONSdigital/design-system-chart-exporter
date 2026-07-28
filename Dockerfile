@@ -11,11 +11,6 @@ FROM python:3.14-slim AS base
 
 WORKDIR /app
 
-# hadolint ignore=DL3008
-RUN apt-get --quiet --yes update \
-    && apt-get --quiet --yes install --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /uvx /bin/
 
 RUN useradd --create-home exporter \
@@ -58,4 +53,4 @@ RUN uv sync --frozen --no-install-project --no-dev
 
 COPY --chown=exporter:exporter app ./app
 
-CMD ["gunicorn", "app.main:app", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:30300"]
+CMD ["gunicorn", "app.main:app", "--worker-class", "uvicorn_worker.UvicornWorker", "--bind", "0.0.0.0:30300"]

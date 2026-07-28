@@ -5,6 +5,7 @@ See: https://github.com/ONSdigital/dp-standards/blob/main/LOGGING_STANDARDS.md
 
 import os
 import sys
+import traceback
 from typing import Final
 
 import structlog
@@ -32,6 +33,36 @@ def _add_severity(
     return event_dict
 
 
+def _add_exception_info(
+    logger: structlog.types.WrappedLogger,  # pylint: disable=unused-argument
+    method_name: str,  # pylint: disable=unused-argument
+    event_dict: structlog.types.EventDict,
+) -> structlog.types.EventDict:
+    """Replace exc_info with a DP standard compliant errors field."""
+    exc_info = event_dict.pop("exc_info", None)
+    if exc_info is True:
+        exc_info = sys.exc_info()
+    elif isinstance(exc_info, BaseException):
+        # If someone passed an exception instance directly, convert it to a tuple
+        exc_info = (type(exc_info), exc_info, exc_info.__traceback__)
+
+    if not exc_info or exc_info[1] is None:
+        return event_dict
+
+    _, value, exc_traceback = exc_info
+
+    event_dict["errors"] = [
+        {
+            "message": traceback.format_exception_only(value)[0].strip(),
+            "stack_trace": [
+                {"file": summary.filename, "function": summary.name, "line": summary.line}
+                for summary in traceback.extract_tb(exc_traceback)
+            ],
+        }
+    ]
+    return event_dict
+
+
 def _get_renderer() -> structlog.types.Processor:
     """Return the appropriate renderer based on the LOG_AS_JSON environment variable."""
     if LOG_AS_JSON:
@@ -49,6 +80,7 @@ def configure_logging(*, renderer: structlog.types.Processor | None = None) -> N
     structlog.configure(
         processors=[
             _add_severity,
+            _add_exception_info,
             structlog.processors.TimeStamper(fmt="iso", utc=True, key="created_at"),
             renderer or _get_renderer(),
         ],

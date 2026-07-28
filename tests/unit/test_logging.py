@@ -4,7 +4,7 @@ import pytest
 import structlog
 
 import app.logging as logging_module
-from app.logging import _add_severity, _get_renderer, configure_logging, get_logger
+from app.logging import _add_exception_info, _add_severity, _get_renderer, configure_logging, get_logger
 
 
 @pytest.mark.parametrize(
@@ -37,6 +37,38 @@ def test_get_renderer_selects_renderer_based_on_log_as_json(monkeypatch, log_as_
     assert isinstance(_get_renderer(), expected_type)
 
 
+def test_add_exception_info_leaves_event_dict_unchanged_without_exc_info():
+    event_dict = {"event": "something happened"}
+
+    result = _add_exception_info(logger=None, method_name="info", event_dict=event_dict)
+
+    assert result == {"event": "something happened"}
+
+
+def test_add_exception_info_formats_exception_instance():
+    with pytest.raises(ValueError) as exc_info:
+        raise ValueError("bad thing")
+
+    event_dict = _add_exception_info(logger=None, method_name="error", event_dict={"exc_info": exc_info.value})
+
+    assert "exc_info" not in event_dict
+    errors = event_dict["errors"]
+    assert len(errors) == 1
+    assert errors[0]["message"] == "ValueError: bad thing"
+    assert errors[0]["stack_trace"][-1]["function"] == "test_add_exception_info_formats_exception_instance"
+    assert errors[0]["stack_trace"][-1]["line"] == 'raise ValueError("bad thing")'
+
+
+def test_add_exception_info_formats_current_exception_when_exc_info_true():
+    try:
+        raise ValueError("bad thing")
+    except ValueError:
+        event_dict = _add_exception_info(logger=None, method_name="error", event_dict={"exc_info": True})
+        errors = event_dict["errors"]
+        assert errors[0]["message"] == "ValueError: bad thing"
+        assert all({"file", "function", "line"} == frame.keys() for frame in errors[0]["stack_trace"])
+
+
 def test_get_logger_emits_dp_standard_compliant_json(capsys):
     configure_logging(renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
@@ -61,6 +93,30 @@ def test_get_logger_binds_namespace_across_calls(capsys):
     lines = capsys.readouterr().out.strip().splitlines()
     assert [json.loads(line)["namespace"] for line in lines] == ["test-service", "test-service"]
     assert [json.loads(line)["severity"] for line in lines] == [3, 2]
+
+
+def test_get_logger_logs_dp_standard_compliant_errors_on_exception(capsys):
+    configure_logging(renderer=structlog.processors.JSONRenderer())
+    log = get_logger(namespace="test-service")
+
+    try:
+        raise ValueError("bad thing happened")
+    except ValueError:
+        log.exception("failed")
+
+    logged = json.loads(capsys.readouterr().out)
+    assert logged["errors"] == [
+        {
+            "message": "ValueError: bad thing happened",
+            "stack_trace": [
+                {
+                    "file": __file__,
+                    "function": "test_get_logger_logs_dp_standard_compliant_errors_on_exception",
+                    "line": 'raise ValueError("bad thing happened")',
+                }
+            ],
+        }
+    ]
 
 
 def test_get_logger_with_custom_renderer(capsys):

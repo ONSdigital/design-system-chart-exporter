@@ -11,6 +11,7 @@ dependencies = [
     "gunicorn>=23.0.0",
     "structlog>=26.1.0",
     "uvicorn>=0.38.0",
+    "uvicorn-worker>=0.3.0",
 ]
 
 [tool.uv]
@@ -91,14 +92,6 @@ disallow_untyped_defs = "True"
 disallow_untyped_calls = "True"
 disallow_incomplete_defs = "True"
 strict_equality = "True"
-
-[tool.pylint."messages control"]
-disable = [
-    # Mirror ruff's ignore list for consistency
-    "missing-module-docstring",
-    "missing-class-docstring",
-    "missing-function-docstring",
-]
 
 [tool.coverage.run]
 omit = ["app/__main__.py"]

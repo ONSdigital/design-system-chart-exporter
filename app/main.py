@@ -15,11 +15,17 @@ app = FastAPI()
 
 _START_TIME: Final = datetime.now(UTC)
 _PYPROJECT_PATH: Final = Path(__file__).parents[1] / "pyproject.toml"
-_PROJECT: Final = tomllib.loads(_PYPROJECT_PATH.read_text())["project"]
-_VERSION: Final = _PROJECT["version"]
+
+try:
+    _PROJECT: Final = tomllib.loads(_PYPROJECT_PATH.read_text(encoding="utf-8"))["project"]
+    _SERVICE_NAME: Final = _PROJECT["name"]
+    _VERSION: Final = _PROJECT["version"]
+except (OSError, KeyError, tomllib.TOMLDecodeError):
+    _SERVICE_NAME = "design-system-chart-exporter"
+    _VERSION = "unknown"
 
 configure_logging()
-log = get_logger(namespace=_PROJECT["name"])
+log = get_logger(namespace=_SERVICE_NAME)
 
 Status = Literal["OK", "WARNING", "CRITICAL"]
 

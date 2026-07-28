@@ -9,6 +9,6 @@ soft-fail: false
 skip-check:
   # Ensure top-level permissions are not set to write-all
   - CKV2_GHA_1
-  # Ensure that HEALTHCHECK instructions have been added to container images
+  # Skip container HEALTHCHECK requirement (CKV_DOCKER_2); health is handled externally
   - CKV_DOCKER_2
 summary-position: bottom

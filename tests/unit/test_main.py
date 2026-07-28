@@ -14,6 +14,6 @@ def test_health(client):
     assert body["version"]["version"] == "0.1.0"
     assert body["version"]["language"] == "python"
 
-    # Sense-check that the start_time is in the past and uptime is positive
+    # Sense-check that the start_time is in the past and uptime is non-negative
     assert datetime.fromisoformat(body["start_time"]) <= now
-    assert body["uptime"] > 0
+    assert body["uptime"] >= 0

@@ -20,7 +20,7 @@ try:
     _PROJECT: Final = tomllib.loads(_PYPROJECT_PATH.read_text(encoding="utf-8"))["project"]
     _SERVICE_NAME: Final = _PROJECT["name"]
     _VERSION: Final = _PROJECT["version"]
-except (OSError, KeyError, tomllib.TOMLDecodeError):
+except OSError, KeyError, tomllib.TOMLDecodeError:
     _SERVICE_NAME = "design-system-chart-exporter"
     _VERSION = "unknown"
 

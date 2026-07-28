@@ -78,10 +78,22 @@ Ensure you have the following installed:
    make install
    ```
 
-3. Run the application
+   To build the Docker image for the application, run:
 
    ```bash
+   make compose-build
+   ```
+
+3. Run the application
+
+   Locally via uv:
+   ```bash
    make run
+   ```
+
+   Using Docker Compose:
+   ```bash
+   make start
    ```
 
 ## Development

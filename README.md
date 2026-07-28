@@ -87,11 +87,13 @@ Ensure you have the following installed:
 3. Run the application
 
    Locally via uv:
+
    ```bash
    make run
    ```
 
    Using Docker Compose:
+
    ```bash
    make start
    ```

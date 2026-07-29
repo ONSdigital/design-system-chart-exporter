@@ -1,0 +1,34 @@
+name: Block merge on blocking labels
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled, edited]
+
+concurrency:
+  group: '${{ github.head_ref || github.ref }}-${{ github.workflow }}'
+  cancel-in-progress: true
+
+jobs:
+  label-check:
+    name: label-check
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: mheap/github-action-required-labels@23e10fde7e062233401931a0eece796cd9bf3177 # v5.6.0
+        with:
+          mode: exactly
+          count: 0
+          labels: |
+            do not merge
+            status: Blocked
+            status: In-progress
+            status: Needs tests
+            invalid
+            On Hold ✋
+          add_comment: true
+          message:
+            "This PR is being prevented from merging because you have added one of our blocking labels: {{ applied }}\n\n
+            You'll need to remove it before this PR can be merged."

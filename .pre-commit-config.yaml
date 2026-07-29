@@ -3,6 +3,15 @@ default_language_version:
   python: python3
 
 repos:
+  # Git Etiquette
+  - repo: local
+    hooks:
+      - id: branch-name-check
+        name: branch-name-check
+        language: system
+        entry: ./scripts/validate-branch-name.sh
+        pass_filenames: false
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:

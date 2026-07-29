@@ -26,7 +26,6 @@ jobs:
             status: Blocked
             status: In-progress
             status: Needs tests
-            status: Needs functional/UI tests
             invalid
             On Hold ✋
           add_comment: true

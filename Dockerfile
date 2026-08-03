@@ -49,8 +49,15 @@ CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "303
 
 FROM base AS web
 
+# Number of workers for gunicorn to spawn
+ENV WEB_CONCURRENCY=2
+
 RUN uv sync --frozen --no-install-project --no-dev
 
+COPY --chown=exporter:exporter gunicorn.conf.py ./
 COPY --chown=exporter:exporter app ./app
 
-CMD ["gunicorn", "app.main:app", "--worker-class", "uvicorn_worker.UvicornWorker", "--bind", "0.0.0.0:30300"]
+# Run gunicorn using the config in gunicorn.conf.py (the default location for
+# the config file). To change gunicorn settings without needing to make code
+# changes and rebuild this image, set the GUNICORN_CMD_ARGS environment variable.
+CMD ["gunicorn"]

@@ -86,7 +86,7 @@ Ensure you have the following installed:
 
 3. Run the application
 
-   Locally via uv:
+   Locally via `uv`:
 
    ```bash
    make run
@@ -97,6 +97,9 @@ Ensure you have the following installed:
    ```bash
    make start
    ```
+
+By default, the application will be available at [http://localhost:30300](http://localhost:30300).
+This can be customised by setting the `WEB_PORT` environment variable.
 
 ## Development
 

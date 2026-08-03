@@ -1,5 +1,7 @@
 .DEFAULT_GOAL := all
 
+WEB_PORT ?= 30300
+
 .PHONY: all
 all: ## Show the available make targets.
 	@echo "Usage: make <target>"
@@ -49,7 +51,7 @@ pylint:  ## Run pylint.
 
 .PHONY: run
 run:  ## Run the app with uvicorn.
-	uv run uvicorn app.main:app --host 0.0.0.0 --port 30300 --reload
+	uv run uvicorn app.main:app --host 0.0.0.0 --port $(WEB_PORT) --reload
 
 .PHONY: install
 install:  ## Install the dependencies excluding dev.

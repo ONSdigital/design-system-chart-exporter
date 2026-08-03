@@ -65,7 +65,7 @@ def _add_exception_info(
         {
             "message": traceback.format_exception_only(value)[0].strip(),
             "stack_trace": [
-                {"file": summary.filename, "function": summary.name, "line": summary.line}
+                {"file": summary.filename, "function": summary.name, "line": summary.lineno}
                 for summary in traceback.extract_tb(exc_traceback)
             ],
         }

@@ -75,7 +75,7 @@ def test_add_exception_info_formats_exception_instance():
     assert len(errors) == 1
     assert errors[0]["message"] == "ValueError: bad thing"
     assert errors[0]["stack_trace"][-1]["function"] == "test_add_exception_info_formats_exception_instance"
-    assert errors[0]["stack_trace"][-1]["line"] == 'raise ValueError("bad thing")'
+    assert errors[0]["stack_trace"][-1]["line"] == exc_info.value.__traceback__.tb_lineno
 
 
 def test_add_exception_info_formats_current_exception_when_exc_info_true():
@@ -121,7 +121,8 @@ def test_get_logger_logs_dp_standard_compliant_errors_on_exception(capsys):
 
     try:
         raise ValueError("bad thing happened")
-    except ValueError:
+    except ValueError as exc:
+        raise_line = exc.__traceback__.tb_lineno
         log.exception("failed")
 
     logged = json.loads(capsys.readouterr().out)
@@ -132,7 +133,7 @@ def test_get_logger_logs_dp_standard_compliant_errors_on_exception(capsys):
                 {
                     "file": __file__,
                     "function": "test_get_logger_logs_dp_standard_compliant_errors_on_exception",
-                    "line": 'raise ValueError("bad thing happened")',
+                    "line": raise_line,
                 }
             ],
         }

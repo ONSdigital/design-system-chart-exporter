@@ -16,11 +16,14 @@ app = FastAPI()
 
 _START_TIME: Final = datetime.now(UTC)
 _PYPROJECT_PATH: Final = Path(__file__).parents[1] / "pyproject.toml"
+_GIT_COMMIT: Final = os.environ.get("GIT_COMMIT", "")
+_GIT_TAG: Final = os.environ.get("GIT_TAG", "")
+
 
 try:
     _PROJECT: Final = tomllib.loads(_PYPROJECT_PATH.read_text(encoding="utf-8"))["project"]
     _SERVICE_NAME = _PROJECT["name"]
-    _VERSION = _PROJECT["version"]
+    _VERSION = _GIT_TAG or _GIT_COMMIT or _PROJECT["version"]
 except OSError, KeyError, tomllib.TOMLDecodeError:  # pragma: no cover
     _SERVICE_NAME = "design-system-chart-exporter"
     _VERSION = "unknown"
@@ -42,7 +45,6 @@ def _read_build_time() -> str:
         return ""
 
 
-_GIT_COMMIT: Final = os.environ.get("GIT_COMMIT", "")
 _BUILD_TIME: Final = _read_build_time()
 
 configure_logging()

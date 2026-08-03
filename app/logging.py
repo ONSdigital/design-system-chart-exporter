@@ -33,6 +33,16 @@ def _add_severity(
     return event_dict
 
 
+def _add_spec_version(
+    logger: structlog.types.WrappedLogger,  # pylint: disable=unused-argument
+    method_name: str,  # pylint: disable=unused-argument
+    event_dict: structlog.types.EventDict,
+) -> structlog.types.EventDict:
+    """Add the logging standard's spec_version field, defaulting to v1."""
+    event_dict.setdefault("spec_version", "v1")
+    return event_dict
+
+
 def _add_exception_info(
     logger: structlog.types.WrappedLogger,  # pylint: disable=unused-argument
     method_name: str,  # pylint: disable=unused-argument
@@ -80,6 +90,7 @@ def configure_logging(*, renderer: structlog.types.Processor | None = None) -> N
     structlog.configure(
         processors=[
             _add_severity,
+            _add_spec_version,
             _add_exception_info,
             structlog.processors.TimeStamper(fmt="iso", utc=True, key="created_at"),
             renderer or _get_renderer(),

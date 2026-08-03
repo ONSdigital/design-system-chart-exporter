@@ -4,7 +4,14 @@ import pytest
 import structlog
 
 import app.logging as logging_module
-from app.logging import _add_exception_info, _add_severity, _get_renderer, configure_logging, get_logger
+from app.logging import (
+    _add_exception_info,
+    _add_severity,
+    _add_spec_version,
+    _get_renderer,
+    configure_logging,
+    get_logger,
+)
 
 
 @pytest.mark.parametrize(
@@ -35,6 +42,18 @@ def test_get_renderer_selects_renderer_based_on_log_as_json(monkeypatch, log_as_
     monkeypatch.setattr(logging_module, "LOG_AS_JSON", log_as_json)
 
     assert isinstance(_get_renderer(), expected_type)
+
+
+def test_add_spec_version_defaults_to_v1():
+    event_dict = _add_spec_version(logger=None, method_name="info", event_dict={})
+
+    assert event_dict["spec_version"] == "v1"
+
+
+def test_add_spec_version_leaves_existing_value_untouched():
+    event_dict = _add_spec_version(logger=None, method_name="info", event_dict={"spec_version": "v2"})
+
+    assert event_dict["spec_version"] == "v2"
 
 
 def test_add_exception_info_leaves_event_dict_unchanged_without_exc_info():
@@ -79,6 +98,7 @@ def test_get_logger_emits_dp_standard_compliant_json(capsys):
     assert logged["namespace"] == "test-service"
     assert logged["event"] == "something happened"
     assert logged["severity"] == 3
+    assert logged["spec_version"] == "v1"
     assert "created_at" in logged
     assert "level" not in logged
 

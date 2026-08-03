@@ -38,7 +38,7 @@ def _read_build_time() -> str:
         return ""
     try:
         return _iso8601(datetime.fromtimestamp(int(build_time), tz=UTC))
-    except (ValueError, OverflowError, OSError):
+    except ValueError, OverflowError, OSError:
         return ""
 
 

@@ -73,7 +73,7 @@ megalint:  ## Run the mega-linter. Use LINTER=NAME to run only one.
 
 .PHONY: compose-build
 compose-build:  ## Build the main application's Docker container
-	docker compose build
+	docker compose build --build-arg="GIT_COMMIT=$(shell git rev-parse HEAD)" --build-arg="BUILD_TIME=$(shell date +%s)"
 
 .PHONY: compose-pull
 compose-pull:  ## Pull Docker containers

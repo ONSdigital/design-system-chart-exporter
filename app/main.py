@@ -1,5 +1,6 @@
 """FastAPI application entrypoint."""
 
+import os
 import platform
 import tomllib
 from datetime import UTC, datetime
@@ -23,6 +24,26 @@ try:
 except OSError, KeyError, tomllib.TOMLDecodeError:  # pragma: no cover
     _SERVICE_NAME = "design-system-chart-exporter"
     _VERSION = "unknown"
+
+
+def _iso8601(timestamp: datetime) -> str:
+    """Format a datetime as ISO 8601 UTC per the DP health check spec."""
+    return timestamp.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _read_build_time() -> str:
+    """Convert the BUILD_TIME unix timestamp env var to an ISO 8601 string."""
+    build_time = os.environ.get("BUILD_TIME")
+    if not build_time:
+        return ""
+    try:
+        return _iso8601(datetime.fromtimestamp(int(build_time), tz=UTC))
+    except (ValueError, OverflowError, OSError):
+        return ""
+
+
+_GIT_COMMIT: Final = os.environ.get("GIT_COMMIT", "")
+_BUILD_TIME: Final = _read_build_time()
 
 configure_logging()
 log = get_logger(namespace=_SERVICE_NAME)
@@ -74,12 +95,12 @@ def health() -> HealthResponse:
         status="OK",
         version=VersionInfo(
             version=_VERSION,
-            git_commit="",
-            build_time="",
+            git_commit=_GIT_COMMIT,
+            build_time=_BUILD_TIME,
             language="python",
             language_version=platform.python_version(),
         ),
         uptime=int((now - _START_TIME).total_seconds() * 1000),
-        start_time=_START_TIME.isoformat(),
+        start_time=_iso8601(_START_TIME),
         checks=[],
     )

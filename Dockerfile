@@ -39,6 +39,12 @@ FROM base AS dev
 
 RUN uv sync --frozen
 
+# Commit SHA and build timestamp, baked in at image build time
+ARG GIT_COMMIT=""
+ARG BUILD_TIME=""
+ENV GIT_COMMIT=${GIT_COMMIT} \
+    BUILD_TIME=${BUILD_TIME}
+
 CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "30300", "--reload"]
 
 #############
@@ -56,6 +62,12 @@ RUN uv sync --frozen --no-install-project --no-dev
 
 COPY --chown=exporter:exporter gunicorn.conf.py ./
 COPY --chown=exporter:exporter app ./app
+
+# Commit SHA and build timestamp, baked in at image build time
+ARG GIT_COMMIT=""
+ARG BUILD_TIME=""
+ENV GIT_COMMIT=${GIT_COMMIT} \
+    BUILD_TIME=${BUILD_TIME}
 
 # Run gunicorn using the config in gunicorn.conf.py (the default location for
 # the config file). To change gunicorn settings without needing to make code

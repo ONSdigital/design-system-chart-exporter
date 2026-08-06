@@ -53,3 +53,9 @@ repos:
         language: system
         entry: make mypy
         pass_filenames: false
+      - id: pylint
+        name: pylint
+        language: system
+        entry: make pylint
+        types: [python]
+        pass_filenames: false

@@ -1,0 +1,15 @@
+__pycache__
+.coverage
+.dockerignore
+.git
+.github
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.venv
+*.pyc
+docker-compose.yml
+Dockerfile
+megalinter-reports
+README.md
+tests

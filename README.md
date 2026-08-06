@@ -78,11 +78,28 @@ Ensure you have the following installed:
    make install
    ```
 
+   To build the Docker image for the application, run:
+
+   ```bash
+   make compose-build
+   ```
+
 3. Run the application
+
+   Locally via `uv`:
 
    ```bash
    make run
    ```
+
+   Using Docker Compose:
+
+   ```bash
+   make start
+   ```
+
+By default, the application will be available at [http://localhost:30300](http://localhost:30300).
+This can be customised by setting the `WEB_PORT` environment variable.
 
 ## Development
 
@@ -110,10 +127,11 @@ Various tools are used to lint and format the code in this project.
 
 #### Python
 
-The project uses [Ruff](https://github.com/astral-sh/ruff) and [pylint](https://pylint.pycqa.org/en/latest/index.html)
-for linting and formatting of the Python code.
+The project uses [Ruff](https://github.com/astral-sh/ruff) for linting and
+formatting, [mypy](https://mypy-lang.org/) for type checking, and
+[pylint](https://pylint.pycqa.org/) for additional linting of the Python code.
 
-The tools are configured using the `pyproject.toml` file.
+The tools are configured using the `pyproject.toml` file and `.pylintrc`.
 
 To lint the Python code, run:
 
@@ -172,8 +190,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## License
 
-Copyright © 2024 [Crown Copyright](https://www.nationalarchives.gov.uk/information-management/re-using-public-sector-information/uk-government-licensing-framework/crown-copyright/) (Office for National Statistics)
+Copyright © 2026 [Crown Copyright][crown-copyright] (Office for National Statistics)
 
-Unless stated otherwise, the codebase is released under the [MIT License](LICENSE). This covers both the codebase and any sample code in the documentation.
+Unless stated otherwise, the codebase is released under the [MIT License](LICENSE).
+This covers both the codebase and any sample code in the documentation.
 
-The documentation in this repo are released under the [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
+The documentation in this repo are released under the [Open Government Licence v3.0][ogl-v3].
+
+[crown-copyright]: https://www.nationalarchives.gov.uk/information-management/re-using-public-sector-information/uk-government-licensing-framework/crown-copyright/
+[ogl-v3]: https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/

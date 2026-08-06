@@ -1,0 +1,17 @@
+---
+services:
+  web:
+    build:
+      context: .
+      target: dev
+      args:
+        - GIT_COMMIT=
+        - BUILD_TIME=
+    ports:
+      - ${WEB_PORT:-30300}:30300
+    volumes:
+      - ./:/app
+      - venv:/app/.venv
+
+volumes:
+  venv:

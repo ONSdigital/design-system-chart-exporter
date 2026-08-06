@@ -1,26 +1,9 @@
-from decimal import Decimal
+"""Entrypoint for running the app with `python -m app`."""
 
-from app.calculator import Calculator
+import os
 
-
-def main() -> None:
-    calculator = Calculator()
-
-    total = calculator.add(Decimal("10.50"))
-    print(f"After add: {total}")
-
-    total = calculator.subtract(Decimal("2.25"))
-    print(f"After subtract: {total}")
-
-    total = calculator.multiply(Decimal("3"))
-    print(f"After multiply: {total}")
-
-    total = calculator.divide(Decimal("4"))
-    print(f"After divide: {total}")
-
-    calculator.reset_cumulative_total()
-    print(f"After reset: {calculator.cumulative_total}")
-
+import uvicorn
 
 if __name__ == "__main__":
-    main()
+    port = int(os.environ.get("WEB_PORT", "30300"))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)  # noqa: S104

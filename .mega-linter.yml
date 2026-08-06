@@ -9,6 +9,9 @@ APPLY_FIXES: all
 
 FORMATTERS_DISABLE_ERRORS: false
 
+# Don't look for secrets in the .venv folder
+REPOSITORY_KINGFISHER_ARGUMENTS: "--exclude '.venv'"
+
 # If you use ENABLE variable, all other languages/formats/tooling-formats will
 # be disabled by default
 # ENABLE:
@@ -43,3 +46,5 @@ YAML_V8R_FILTER_REGEX_EXCLUDE: "dependabot.yml" # Dependabot yaml in SchemaStore
 # This whitelists GITHUB_TOKEN so zizmor can authenticate with the GitHub API to resolve the uses: clauses in our workflow files.
 ACTION_ZIZMOR_UNSECURED_ENV_VARIABLES:
   - GITHUB_TOKEN
+
+REPOSITORY_TRIVY_ARGUMENTS: "--ignorefile .github/linters/.trivyignore"

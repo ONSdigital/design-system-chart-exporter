@@ -1,0 +1,125 @@
+openapi: 3.1.0
+info:
+  title: FastAPI
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      summary: Health
+      description: 'Returns the service health status per the DP health check specification.
+
+
+        See: https://github.com/ONSdigital/dp-standards/blob/main/HEALTH_CHECK_SPECIFICATION.md'
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+components:
+  schemas:
+    Check:
+      properties:
+        name:
+          type: string
+          title: Name
+        status:
+          type: string
+          enum:
+          - OK
+          - WARNING
+          - CRITICAL
+          title: Status
+        status_code:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Status Code
+        message:
+          type: string
+          title: Message
+        last_checked:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Checked
+        last_success:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Success
+        last_failure:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Failure
+      type: object
+      required:
+      - name
+      - status
+      - message
+      - last_checked
+      - last_success
+      - last_failure
+      title: Check
+      description: Result of an individual health check.
+    HealthResponse:
+      properties:
+        status:
+          type: string
+          enum:
+          - OK
+          - WARNING
+          - CRITICAL
+          title: Status
+        version:
+          $ref: '#/components/schemas/VersionInfo'
+        uptime:
+          type: integer
+          title: Uptime
+        start_time:
+          type: string
+          title: Start Time
+        checks:
+          items:
+            $ref: '#/components/schemas/Check'
+          type: array
+          maxItems: 20
+          title: Checks
+      type: object
+      required:
+      - status
+      - version
+      - uptime
+      - start_time
+      - checks
+      title: HealthResponse
+      description: Response body for the health check endpoint.
+    VersionInfo:
+      properties:
+        version:
+          type: string
+          title: Version
+        git_commit:
+          type: string
+          title: Git Commit
+        build_time:
+          type: string
+          title: Build Time
+        language:
+          type: string
+          title: Language
+        language_version:
+          type: string
+          title: Language Version
+      type: object
+      required:
+      - version
+      - git_commit
+      - build_time
+      - language
+      - language_version
+      title: VersionInfo
+      description: Version details for the running service.

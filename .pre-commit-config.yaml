@@ -59,3 +59,14 @@ repos:
         entry: make pylint
         types: [python]
         pass_filenames: false
+      - id: openapi-export
+        name: openapi-export
+        language: system
+        entry: make openapi
+        pass_filenames: false
+        files: ^(app/.*\.py|pyproject\.toml)$
+      - id: openapi-check
+        name: openapi-check
+        language: system
+        entry: make openapi-check
+        pass_filenames: false

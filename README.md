@@ -121,6 +121,20 @@ coverage, run:
 make test
 ```
 
+### OpenAPI specification
+
+The OpenAPI specification for the service is available at [http://localhost:30300/openapi.json](http://localhost:30300/openapi.json)
+when the service is running locally.
+
+The repository also contains a YAML version of the OpenAPI specification at
+`openapi/openapi.yaml`. This can be used to generate client code.
+
+The file can be updated by running the following command:
+
+```bash
+make openapi
+```
+
 ### Linting and Formatting
 
 Various tools are used to lint and format the code in this project.

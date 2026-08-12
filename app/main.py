@@ -48,7 +48,7 @@ def _read_build_time() -> str:
 _BUILD_TIME: Final = _read_build_time()
 
 configure_logging(namespace=_SERVICE_NAME)
-log = get_logger(namespace=_SERVICE_NAME)
+log = get_logger()
 
 Status = Literal["OK", "WARNING", "CRITICAL"]
 

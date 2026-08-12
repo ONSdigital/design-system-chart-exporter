@@ -160,6 +160,26 @@ def test_get_logger_binds_namespace_across_calls(capsys):
     assert [json.loads(line)["severity"] for line in lines] == [3, 2]
 
 
+def test_get_logger_defaults_to_namespace_from_configure_logging(capsys):
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
+    log = get_logger()
+
+    log.info("event")
+
+    logged = json.loads(capsys.readouterr().out)
+    assert logged["namespace"] == "test-service"
+
+
+def test_get_logger_can_override_namespace_from_configure_logging(capsys):
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
+    log = get_logger(namespace="other-namespace")
+
+    log.info("event")
+
+    logged = json.loads(capsys.readouterr().out)
+    assert logged["namespace"] == "other-namespace"
+
+
 def test_get_logger_logs_dp_standard_compliant_errors_on_exception(capsys):
     configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")

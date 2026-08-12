@@ -152,7 +152,9 @@ def configure_logging(*, namespace: str, renderer: structlog.types.Processor | N
         uvicorn_logger.propagate = True
 
 
-def get_logger(namespace: str) -> structlog.types.FilteringBoundLogger:
-    """Return a logger pre-bound with the service namespace."""
-    logger: structlog.types.FilteringBoundLogger = structlog.get_logger().bind(namespace=namespace)
+def get_logger(namespace: str | None = None) -> structlog.types.FilteringBoundLogger:
+    """Return a logger, optionally bound to a namespace overriding the one set in configure_logging."""
+    logger: structlog.types.FilteringBoundLogger = structlog.get_logger()
+    if namespace is not None:
+        logger = logger.bind(namespace=namespace)
     return logger

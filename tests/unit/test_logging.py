@@ -134,7 +134,7 @@ def test_add_exception_info_suppresses_context_when_raise_from_none():
 
 
 def test_get_logger_emits_dp_standard_compliant_json(capsys):
-    configure_logging(renderer=structlog.processors.JSONRenderer())
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
 
     log.info("something happened")
@@ -149,7 +149,7 @@ def test_get_logger_emits_dp_standard_compliant_json(capsys):
 
 
 def test_get_logger_binds_namespace_across_calls(capsys):
-    configure_logging(renderer=structlog.processors.JSONRenderer())
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
 
     log.info("first event")
@@ -161,7 +161,7 @@ def test_get_logger_binds_namespace_across_calls(capsys):
 
 
 def test_get_logger_logs_dp_standard_compliant_errors_on_exception(capsys):
-    configure_logging(renderer=structlog.processors.JSONRenderer())
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
 
     try:
@@ -186,7 +186,7 @@ def test_get_logger_logs_dp_standard_compliant_errors_on_exception(capsys):
 
 
 def test_configure_logging_formats_stdlib_logging_as_dp_standard_compliant_json(capsys):
-    configure_logging(renderer=structlog.processors.JSONRenderer())
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     stdlib_logger = logging.getLogger("uvicorn.error")
 
     try:
@@ -198,11 +198,12 @@ def test_configure_logging_formats_stdlib_logging_as_dp_standard_compliant_json(
     assert logged["event"] == "Exception in ASGI application"
     assert logged["severity"] == 1
     assert logged["spec_version"] == "v1"
+    assert logged["namespace"] == "test-service"
     assert logged["errors"][0]["message"] == "ValueError: bad thing happened"
 
 
 def test_configure_logging_drops_debug_by_default(capsys):
-    configure_logging(renderer=structlog.processors.JSONRenderer())
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
 
     log.debug("debug event")
@@ -215,7 +216,7 @@ def test_configure_logging_drops_debug_by_default(capsys):
 
 def test_configure_logging_shows_everything_when_debug_log_level(monkeypatch, capsys):
     monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.DEBUG)
-    configure_logging(renderer=structlog.processors.JSONRenderer())
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
 
     log.debug("debug event")
@@ -228,7 +229,7 @@ def test_configure_logging_shows_everything_when_debug_log_level(monkeypatch, ca
 
 def test_configure_logging_drops_events_below_log_level(monkeypatch, capsys):
     monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.WARNING)
-    configure_logging(renderer=structlog.processors.JSONRenderer())
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
 
     log.info("suppressed event")
@@ -244,7 +245,7 @@ def test_get_logger_with_custom_renderer(capsys):
         def __call__(self, _, __, event_dict):
             return f"Custom log: {event_dict['event']}"
 
-    configure_logging(renderer=CustomRenderer())
+    configure_logging(namespace="test-service", renderer=CustomRenderer())
     log = get_logger(namespace="test-service")
 
     log.info("custom event")

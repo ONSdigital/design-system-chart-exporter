@@ -88,17 +88,33 @@ def _get_renderer() -> structlog.types.Processor:
     return structlog.dev.ConsoleRenderer()
 
 
-def configure_logging(*, renderer: structlog.types.Processor | None = None) -> None:
+def _make_add_namespace(namespace: str) -> structlog.types.Processor:
+    """Build a processor that adds the DP standard's required namespace field."""
+
+    def add_namespace(
+        logger: structlog.types.WrappedLogger,  # pylint: disable=unused-argument
+        method_name: str,  # pylint: disable=unused-argument
+        event_dict: structlog.types.EventDict,
+    ) -> structlog.types.EventDict:
+        event_dict.setdefault("namespace", namespace)
+        return event_dict
+
+    return add_namespace
+
+
+def configure_logging(*, namespace: str, renderer: structlog.types.Processor | None = None) -> None:
     """Configure structlog and stdlib logging to emit JSON lines matching the DP logging standard.
 
     Routes both structlog and stdlib logging (e.g. uvicorn's handling of unhandled
     exceptions) through the same processors, so both are DP standard compliant.
 
     Args:
+        namespace: Service name or other identifier, added to every log line.
         renderer: Optional structlog processor to use for rendering log output.
             If None, the renderer will be chosen based on the LOG_AS_JSON environment variable.
     """
     shared_processors: list[structlog.types.Processor] = [
+        _make_add_namespace(namespace),
         _add_severity,
         _add_spec_version,
         _add_exception_info,
@@ -127,6 +143,13 @@ def configure_logging(*, renderer: structlog.types.Processor | None = None) -> N
     root_logger = logging.getLogger()
     root_logger.handlers = [handler]
     root_logger.setLevel(LOG_LEVEL)
+
+    # uvicorn installs its own handlers and sets propagate=False on "uvicorn", which stops
+    # "uvicorn.error" (e.g. unhandled exceptions) and "uvicorn.access" reaching the root handler.
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        uvicorn_logger = logging.getLogger(name)
+        uvicorn_logger.handlers = []
+        uvicorn_logger.propagate = True
 
 
 def get_logger(namespace: str) -> structlog.types.FilteringBoundLogger:

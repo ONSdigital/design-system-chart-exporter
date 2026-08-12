@@ -3,6 +3,7 @@
 See: https://github.com/ONSdigital/dp-standards/blob/main/LOGGING_STANDARDS.md
 """
 
+import logging
 import os
 import sys
 import traceback
@@ -21,6 +22,7 @@ _SEVERITY_LEVELS: Final[dict[str, int]] = {
 
 env = os.environ.copy()
 LOG_AS_JSON: Final[bool] = env.get("LOG_AS_JSON", str(not sys.stdout.isatty())).lower().strip() == "true"
+LOG_LEVEL: Final[int] = logging.getLevelNamesMapping().get(env.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
 
 
 def _add_severity(
@@ -59,17 +61,23 @@ def _add_exception_info(
     if not exc_info or exc_info[1] is None:
         return event_dict
 
-    _, value, exc_traceback = exc_info
+    _, value, _ = exc_info
 
-    event_dict["errors"] = [
-        {
-            "message": traceback.format_exception_only(value)[0].strip(),
-            "stack_trace": [
-                {"file": summary.filename, "function": summary.name, "line": summary.lineno}
-                for summary in traceback.extract_tb(exc_traceback)
-            ],
-        }
-    ]
+    errors = []
+    exc: BaseException | None = value
+    while exc is not None:
+        errors.append(
+            {
+                "message": traceback.format_exception_only(exc)[0].strip(),
+                "stack_trace": [
+                    {"file": summary.filename, "function": summary.name, "line": summary.lineno}
+                    for summary in traceback.extract_tb(exc.__traceback__)
+                ],
+            }
+        )
+        exc = exc.__cause__ or (None if exc.__suppress_context__ else exc.__context__)
+
+    event_dict["errors"] = errors
     return event_dict
 
 
@@ -81,23 +89,44 @@ def _get_renderer() -> structlog.types.Processor:
 
 
 def configure_logging(*, renderer: structlog.types.Processor | None = None) -> None:
-    """Configure structlog to emit JSON lines matching the DP logging standard.
+    """Configure structlog and stdlib logging to emit JSON lines matching the DP logging standard.
+
+    Routes both structlog and stdlib logging (e.g. uvicorn's handling of unhandled
+    exceptions) through the same processors, so both are DP standard compliant.
 
     Args:
         renderer: Optional structlog processor to use for rendering log output.
             If None, the renderer will be chosen based on the LOG_AS_JSON environment variable.
     """
+    shared_processors: list[structlog.types.Processor] = [
+        _add_severity,
+        _add_spec_version,
+        _add_exception_info,
+        structlog.processors.TimeStamper(fmt="iso", utc=True, key="created_at"),
+    ]
+
     structlog.configure(
-        processors=[
-            _add_severity,
-            _add_spec_version,
-            _add_exception_info,
-            structlog.processors.TimeStamper(fmt="iso", utc=True, key="created_at"),
-            renderer or _get_renderer(),
-        ],
-        logger_factory=structlog.PrintLoggerFactory(),
+        processors=[*shared_processors, structlog.stdlib.ProcessorFormatter.wrap_for_formatter],
+        wrapper_class=structlog.make_filtering_bound_logger(LOG_LEVEL),
+        logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(
+        structlog.stdlib.ProcessorFormatter(
+            foreign_pre_chain=shared_processors,
+            processors=[
+                structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+                renderer or _get_renderer(),
+            ],
+        )
+    )
+
+    # Configure the root logger to use the handler and log level as well
+    root_logger = logging.getLogger()
+    root_logger.handlers = [handler]
+    root_logger.setLevel(LOG_LEVEL)
 
 
 def get_logger(namespace: str) -> structlog.types.FilteringBoundLogger:

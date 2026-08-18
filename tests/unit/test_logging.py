@@ -133,7 +133,8 @@ def test_add_exception_info_suppresses_context_when_raise_from_none():
     assert errors[0]["message"] == "RuntimeError: wrapper"
 
 
-def test_get_logger_emits_dp_standard_compliant_json(capsys):
+def test_get_logger_emits_dp_standard_compliant_json(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
     configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
 
@@ -148,7 +149,8 @@ def test_get_logger_emits_dp_standard_compliant_json(capsys):
     assert "level" not in logged
 
 
-def test_get_logger_binds_namespace_across_calls(capsys):
+def test_get_logger_binds_namespace_across_calls(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
     configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
 
@@ -160,7 +162,8 @@ def test_get_logger_binds_namespace_across_calls(capsys):
     assert [json.loads(line)["severity"] for line in lines] == [3, 2]
 
 
-def test_get_logger_defaults_to_namespace_from_configure_logging(capsys):
+def test_get_logger_defaults_to_namespace_from_configure_logging(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
     configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger()
 
@@ -170,7 +173,8 @@ def test_get_logger_defaults_to_namespace_from_configure_logging(capsys):
     assert logged["namespace"] == "test-service"
 
 
-def test_get_logger_can_override_namespace_from_configure_logging(capsys):
+def test_get_logger_can_override_namespace_from_configure_logging(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
     configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="other-namespace")
 
@@ -180,7 +184,8 @@ def test_get_logger_can_override_namespace_from_configure_logging(capsys):
     assert logged["namespace"] == "other-namespace"
 
 
-def test_get_logger_logs_dp_standard_compliant_errors_on_exception(capsys):
+def test_get_logger_logs_dp_standard_compliant_errors_on_exception(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
     configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
 
@@ -205,7 +210,8 @@ def test_get_logger_logs_dp_standard_compliant_errors_on_exception(capsys):
     ]
 
 
-def test_configure_logging_formats_stdlib_logging_as_dp_standard_compliant_json(capsys):
+def test_configure_logging_formats_stdlib_logging_as_dp_standard_compliant_json(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
     configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     stdlib_logger = logging.getLogger("uvicorn.error")
 
@@ -222,7 +228,8 @@ def test_configure_logging_formats_stdlib_logging_as_dp_standard_compliant_json(
     assert logged["errors"][0]["message"] == "ValueError: bad thing happened"
 
 
-def test_configure_logging_drops_debug_by_default(capsys):
+def test_configure_logging_drops_debug_by_default(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
     configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
 
@@ -260,7 +267,9 @@ def test_configure_logging_drops_events_below_log_level(monkeypatch, capsys):
     assert json.loads(lines[0])["event"] == "kept event"
 
 
-def test_get_logger_with_custom_renderer(capsys):
+def test_get_logger_with_custom_renderer(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
+
     class CustomRenderer:
         def __call__(self, _, __, event_dict):
             return f"Custom log: {event_dict['event']}"

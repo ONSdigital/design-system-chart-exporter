@@ -10,10 +10,19 @@ from app.main import app
 _OUTPUT_PATH = Path(__file__).resolve().parent.parent / "openapi.yaml"
 
 
+class IndentedListDumper(yaml.SafeDumper):
+    """Custom YAML dumper to meet linter requirements for OpenAPI schema formatting."""
+
+    best_indent = 2
+
+    def increase_indent(self, flow=False, indentless=False):
+        return super().increase_indent(flow, False)
+
+
 def render_schema() -> str:
     """Return the app's OpenAPI schema as a YAML string."""
     schema = app.openapi()
-    return str(yaml.safe_dump(schema, sort_keys=False))
+    return str(yaml.dump(schema, Dumper=IndentedListDumper, sort_keys=False))
 
 
 def main() -> int:

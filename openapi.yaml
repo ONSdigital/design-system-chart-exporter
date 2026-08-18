@@ -28,41 +28,41 @@ components:
         status:
           type: string
           enum:
-          - OK
-          - WARNING
-          - CRITICAL
+            - OK
+            - WARNING
+            - CRITICAL
           title: Status
         status_code:
           anyOf:
-          - type: integer
-          - type: 'null'
+            - type: integer
+            - type: 'null'
           title: Status Code
         message:
           type: string
           title: Message
         last_checked:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Last Checked
         last_success:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Last Success
         last_failure:
           anyOf:
-          - type: string
-          - type: 'null'
+            - type: string
+            - type: 'null'
           title: Last Failure
       type: object
       required:
-      - name
-      - status
-      - message
-      - last_checked
-      - last_success
-      - last_failure
+        - name
+        - status
+        - message
+        - last_checked
+        - last_success
+        - last_failure
       title: Check
       description: Result of an individual health check.
     HealthResponse:
@@ -70,9 +70,9 @@ components:
         status:
           type: string
           enum:
-          - OK
-          - WARNING
-          - CRITICAL
+            - OK
+            - WARNING
+            - CRITICAL
           title: Status
         version:
           $ref: '#/components/schemas/VersionInfo'
@@ -90,11 +90,11 @@ components:
           title: Checks
       type: object
       required:
-      - status
-      - version
-      - uptime
-      - start_time
-      - checks
+        - status
+        - version
+        - uptime
+        - start_time
+        - checks
       title: HealthResponse
       description: Response body for the health check endpoint.
     VersionInfo:
@@ -116,10 +116,10 @@ components:
           title: Language Version
       type: object
       required:
-      - version
-      - git_commit
-      - build_time
-      - language
-      - language_version
+        - version
+        - git_commit
+        - build_time
+        - language
+        - language_version
       title: VersionInfo
       description: Version details for the running service.

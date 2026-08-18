@@ -127,7 +127,7 @@ The OpenAPI specification for the service is available at [http://localhost:3030
 when the service is running locally.
 
 The repository also contains a YAML version of the OpenAPI specification at
-`openapi/openapi.yaml`. This can be used to generate client code.
+`./openapi.yaml`. This can be used to generate client code.
 
 The file can be updated by running the following command:
 

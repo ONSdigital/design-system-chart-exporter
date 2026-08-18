@@ -11,7 +11,7 @@ skip-check:
   - CKV2_GHA_1
   # Skip container HEALTHCHECK requirement (CKV_DOCKER_2); health is handled externally
   - CKV_DOCKER_2
-  # The API only exposes a public /health endpoint; no auth is required by design
+  # No auth is required by design
   - CKV_OPENAPI_4
   - CKV_OPENAPI_5
 summary-position: bottom

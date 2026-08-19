@@ -43,7 +43,7 @@ def main() -> int:
         return 0
 
     _OUTPUT_PATH.write_text(rendered, encoding="utf-8")
-    print(f"{'Updated' if output_exists else 'Generated'} {_YAML_FILENAME}")
+    print(f"\033[32m{'Updated' if output_exists else 'Generated'} {_YAML_FILENAME}\033[0m")
     return 0
 
 

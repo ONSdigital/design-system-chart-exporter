@@ -7,7 +7,8 @@ import yaml
 
 from app.main import app
 
-_OUTPUT_PATH = Path(__file__).resolve().parent.parent / "openapi.yaml"
+_YAML_FILENAME: str = "openapi.yaml"
+_OUTPUT_PATH = Path(__file__).resolve().parent.parent / _YAML_FILENAME
 
 
 class IndentedListDumper(yaml.SafeDumper):
@@ -29,15 +30,20 @@ def main() -> int:
     """Write or check openapi.yaml, depending on the --check flag."""
     rendered = render_schema()
 
+    output_exists = _OUTPUT_PATH.exists()
+
     if "--check" in sys.argv[1:]:
-        current = _OUTPUT_PATH.read_text(encoding="utf-8") if _OUTPUT_PATH.exists() else None
+        current = _OUTPUT_PATH.read_text(encoding="utf-8") if output_exists else None
         if current != rendered:
-            print(f"{_OUTPUT_PATH.name} is out of date. Run 'make openapi' to regenerate it.", file=sys.stderr)
+            print(
+                f"\033[31m{_OUTPUT_PATH.name} is out of date. Run 'make openapi' to regenerate it.\033[0m",
+                file=sys.stderr,
+            )
             return 1
         return 0
 
     _OUTPUT_PATH.write_text(rendered, encoding="utf-8")
-    print(f"Wrote {_OUTPUT_PATH}")
+    print(f"{'Updated' if output_exists else 'Generated'} {_YAML_FILENAME}")
     return 0
 
 

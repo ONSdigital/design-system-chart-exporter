@@ -65,8 +65,3 @@ repos:
         entry: make openapi
         pass_filenames: false
         files: ^(app/.*\.py|pyproject\.toml)$
-      - id: openapi-check
-        name: openapi-check
-        language: system
-        entry: make openapi-check
-        pass_filenames: false

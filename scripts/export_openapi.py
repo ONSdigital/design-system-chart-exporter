@@ -30,7 +30,7 @@ def main() -> int:
     rendered = render_schema()
 
     if "--check" in sys.argv[1:]:
-        current = _OUTPUT_PATH.read_text(encoding="utf-8") if _OUTPUT_PATH.exists() else ""
+        current = _OUTPUT_PATH.read_text(encoding="utf-8") if _OUTPUT_PATH.exists() else None
         if current != rendered:
             print(f"{_OUTPUT_PATH.name} is out of date. Run 'make openapi' to regenerate it.", file=sys.stderr)
             return 1

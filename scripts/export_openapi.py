@@ -30,10 +30,8 @@ def main() -> int:
     """Write or check openapi.yaml, depending on the --check flag."""
     rendered = render_schema()
 
-    output_exists = _OUTPUT_PATH.exists()
-
     if "--check" in sys.argv[1:]:
-        current = _OUTPUT_PATH.read_text(encoding="utf-8") if output_exists else None
+        current = _OUTPUT_PATH.read_text(encoding="utf-8") if _OUTPUT_PATH.exists() else None
         if current != rendered:
             print(
                 f"\033[31m{_OUTPUT_PATH.name} is out of date. Run 'make openapi' to regenerate it.\033[0m",
@@ -43,7 +41,7 @@ def main() -> int:
         return 0
 
     _OUTPUT_PATH.write_text(rendered, encoding="utf-8")
-    print(f"\033[32m{'Updated' if output_exists else 'Generated'} {_YAML_FILENAME}\033[0m")
+    print(f"\033[32mUpdated {_YAML_FILENAME}\033[0m")
     return 0
 
 

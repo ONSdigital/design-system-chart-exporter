@@ -193,7 +193,7 @@ Logging can be configured using the following environment variables:
 | Environment Variable | Description                                                            | Default Value |
 |----------------------|------------------------------------------------------------------------|---------------|
 | `LOG_LEVEL`          | The logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. | `INFO`        |
-| `LOG_AS_JSON`        | Whether to log messages as JSON. One of `true` or `false`.             | `false`       |
+| `LOG_AS_JSON`        | Whether to log messages as JSON. One of `true` or `false`.             | `true`        |
 
 ## Contributing
 

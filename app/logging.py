@@ -21,7 +21,7 @@ _SEVERITY_LEVELS: Final[dict[str, int]] = {
 }
 
 env = os.environ.copy()
-LOG_AS_JSON: Final[bool] = env.get("LOG_AS_JSON", str(not sys.stdout.isatty())).lower().strip() == "true"
+LOG_AS_JSON: Final[bool] = env.get("LOG_AS_JSON", "true").lower().strip() == "true"
 LOG_LEVEL: Final[int] = logging.getLevelNamesMapping().get(env.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
 
 

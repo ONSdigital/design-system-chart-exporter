@@ -28,6 +28,15 @@ lint:  ## Run all linters (ruff/mypy/pylint).
 	uv run ruff format --check .
 	make mypy
 	make pylint
+	make openapi-check
+
+.PHONY: openapi
+openapi:  ## Regenerate openapi.yaml from the FastAPI app.
+	uv run python -m scripts.export_openapi
+
+.PHONY: openapi-check
+openapi-check:  ## Check that openapi.yaml matches the FastAPI app.
+	uv run python -m scripts.export_openapi --check
 
 .PHONY: pre-commit
 pre-commit:  ## Run all pre-commit hooks across the repository.
@@ -47,7 +56,7 @@ mypy:  ## Run mypy.
 
 .PHONY: pylint
 pylint:  ## Run pylint.
-	uv run pylint app --reports=n --output-format=colorized --rcfile=.pylintrc -j 0
+	uv run pylint app scripts --reports=n --output-format=colorized --rcfile=.pylintrc -j 0
 
 .PHONY: run
 run:  ## Run the app with uvicorn.

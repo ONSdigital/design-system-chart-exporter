@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import yaml
+from yaml.nodes import ScalarNode
 
 from app.main import app
 
@@ -18,6 +19,18 @@ class IndentedListDumper(yaml.SafeDumper):
 
     def increase_indent(self, flow=False, indentless=False):
         return super().increase_indent(flow, False)
+
+
+def _represent_str(dumper: yaml.SafeDumper, data: str) -> yaml.ScalarNode:
+    """Quote strings with double quotes (matching Prettier)."""
+    analysis = dumper.analyze_scalar(data)
+    needs_quotes = not (analysis.allow_flow_plain or analysis.allow_block_plain)
+    if dumper.resolve(ScalarNode, data, (True, False)) != "tag:yaml.org,2002:str":
+        needs_quotes = True
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data, style='"' if needs_quotes else None)
+
+
+IndentedListDumper.add_representer(str, _represent_str)
 
 
 def render_schema() -> str:

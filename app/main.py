@@ -88,8 +88,7 @@ class HealthResponse(BaseModel):
 @app.get("/health")
 def health() -> HealthResponse:
     """Returns the service health status per the DP health check specification.
-
-    See: https://github.com/ONSdigital/dp-standards/blob/main/HEALTH_CHECK_SPECIFICATION.md
+    See: https://github.com/ONSdigital/dp-standards/blob/main/HEALTH_CHECK_SPECIFICATION.md.
     """
     log.info("health check requested")
     now = datetime.now(UTC)

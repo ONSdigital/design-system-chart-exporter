@@ -6,18 +6,16 @@ paths:
   /health:
     get:
       summary: Health
-      description: 'Returns the service health status per the DP health check specification.
-
-
-        See: https://github.com/ONSdigital/dp-standards/blob/main/HEALTH_CHECK_SPECIFICATION.md'
+      description: "Returns the service health status per the DP health check specification.\n\
+        See: https://github.com/ONSdigital/dp-standards/blob/main/HEALTH_CHECK_SPECIFICATION.md."
       operationId: health_health_get
       responses:
-        '200':
+        "200":
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthResponse'
+                $ref: "#/components/schemas/HealthResponse"
 components:
   schemas:
     Check:
@@ -35,7 +33,7 @@ components:
         status_code:
           anyOf:
             - type: integer
-            - type: 'null'
+            - type: "null"
           title: Status Code
         message:
           type: string
@@ -43,17 +41,17 @@ components:
         last_checked:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Last Checked
         last_success:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Last Success
         last_failure:
           anyOf:
             - type: string
-            - type: 'null'
+            - type: "null"
           title: Last Failure
       type: object
       required:
@@ -75,7 +73,7 @@ components:
             - CRITICAL
           title: Status
         version:
-          $ref: '#/components/schemas/VersionInfo'
+          $ref: "#/components/schemas/VersionInfo"
         uptime:
           type: integer
           title: Uptime
@@ -84,7 +82,7 @@ components:
           title: Start Time
         checks:
           items:
-            $ref: '#/components/schemas/Check'
+            $ref: "#/components/schemas/Check"
           type: array
           maxItems: 20
           title: Checks

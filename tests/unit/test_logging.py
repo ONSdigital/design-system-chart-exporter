@@ -1,4 +1,5 @@
 import json
+import logging
 
 import pytest
 import structlog
@@ -88,8 +89,53 @@ def test_add_exception_info_formats_current_exception_when_exc_info_true():
         assert all({"file", "function", "line"} == frame.keys() for frame in errors[0]["stack_trace"])
 
 
-def test_get_logger_emits_dp_standard_compliant_json(capsys):
-    configure_logging(renderer=structlog.processors.JSONRenderer())
+def test_add_exception_info_includes_explicit_cause():
+    try:
+        try:
+            raise ValueError("root cause")
+        except ValueError as cause:
+            raise RuntimeError("wrapper") from cause
+    except RuntimeError as exc:
+        event_dict = _add_exception_info(logger=None, method_name="error", event_dict={"exc_info": exc})
+
+    errors = event_dict["errors"]
+    assert len(errors) == 2
+    assert errors[0]["message"] == "RuntimeError: wrapper"
+    assert errors[1]["message"] == "ValueError: root cause"
+
+
+def test_add_exception_info_includes_implicit_context():
+    try:
+        try:
+            raise ValueError("root cause")
+        except ValueError:
+            raise RuntimeError("wrapper")  # noqa: B904
+    except RuntimeError as exc:
+        event_dict = _add_exception_info(logger=None, method_name="error", event_dict={"exc_info": exc})
+
+    errors = event_dict["errors"]
+    assert len(errors) == 2
+    assert errors[0]["message"] == "RuntimeError: wrapper"
+    assert errors[1]["message"] == "ValueError: root cause"
+
+
+def test_add_exception_info_suppresses_context_when_raise_from_none():
+    try:
+        try:
+            raise ValueError("root cause")
+        except ValueError:
+            raise RuntimeError("wrapper") from None
+    except RuntimeError as exc:
+        event_dict = _add_exception_info(logger=None, method_name="error", event_dict={"exc_info": exc})
+
+    errors = event_dict["errors"]
+    assert len(errors) == 1
+    assert errors[0]["message"] == "RuntimeError: wrapper"
+
+
+def test_get_logger_emits_dp_standard_compliant_json(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
 
     log.info("something happened")
@@ -103,8 +149,9 @@ def test_get_logger_emits_dp_standard_compliant_json(capsys):
     assert "level" not in logged
 
 
-def test_get_logger_binds_namespace_across_calls(capsys):
-    configure_logging(renderer=structlog.processors.JSONRenderer())
+def test_get_logger_binds_namespace_across_calls(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
 
     log.info("first event")
@@ -115,8 +162,31 @@ def test_get_logger_binds_namespace_across_calls(capsys):
     assert [json.loads(line)["severity"] for line in lines] == [3, 2]
 
 
-def test_get_logger_logs_dp_standard_compliant_errors_on_exception(capsys):
-    configure_logging(renderer=structlog.processors.JSONRenderer())
+def test_get_logger_defaults_to_namespace_from_configure_logging(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
+    log = get_logger()
+
+    log.info("event")
+
+    logged = json.loads(capsys.readouterr().out)
+    assert logged["namespace"] == "test-service"
+
+
+def test_get_logger_can_override_namespace_from_configure_logging(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
+    log = get_logger(namespace="other-namespace")
+
+    log.info("event")
+
+    logged = json.loads(capsys.readouterr().out)
+    assert logged["namespace"] == "other-namespace"
+
+
+def test_get_logger_logs_dp_standard_compliant_errors_on_exception(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
     log = get_logger(namespace="test-service")
 
     try:
@@ -140,12 +210,71 @@ def test_get_logger_logs_dp_standard_compliant_errors_on_exception(capsys):
     ]
 
 
-def test_get_logger_with_custom_renderer(capsys):
+def test_configure_logging_formats_stdlib_logging_as_dp_standard_compliant_json(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
+    stdlib_logger = logging.getLogger("uvicorn.error")
+
+    try:
+        raise ValueError("bad thing happened")
+    except ValueError:
+        stdlib_logger.error("Exception in ASGI application", exc_info=True)
+
+    logged = json.loads(capsys.readouterr().out)
+    assert logged["event"] == "Exception in ASGI application"
+    assert logged["severity"] == 1
+    assert logged["spec_version"] == "v1"
+    assert logged["namespace"] == "test-service"
+    assert logged["errors"][0]["message"] == "ValueError: bad thing happened"
+
+
+def test_configure_logging_drops_debug_by_default(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
+    log = get_logger(namespace="test-service")
+
+    log.debug("debug event")
+    log.info("info event")
+    log.warning("warning event")
+
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert [json.loads(line)["event"] for line in lines] == ["info event", "warning event"]
+
+
+def test_configure_logging_shows_everything_when_debug_log_level(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.DEBUG)
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
+    log = get_logger(namespace="test-service")
+
+    log.debug("debug event")
+    log.info("info event")
+    log.warning("warning event")
+
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert [json.loads(line)["event"] for line in lines] == ["debug event", "info event", "warning event"]
+
+
+def test_configure_logging_drops_events_below_log_level(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.WARNING)
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
+    log = get_logger(namespace="test-service")
+
+    log.info("suppressed event")
+    log.warning("kept event")
+
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert len(lines) == 1
+    assert json.loads(lines[0])["event"] == "kept event"
+
+
+def test_get_logger_with_custom_renderer(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
+
     class CustomRenderer:
         def __call__(self, _, __, event_dict):
             return f"Custom log: {event_dict['event']}"
 
-    configure_logging(renderer=CustomRenderer())
+    configure_logging(namespace="test-service", renderer=CustomRenderer())
     log = get_logger(namespace="test-service")
 
     log.info("custom event")

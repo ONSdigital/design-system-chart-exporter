@@ -198,6 +198,17 @@ make megalint LINTER=YAML_YAMLLINT
 This maps to MegaLinter's `ENABLE_LINTERS` environment variable. See the
 [supported linters list](https://megalinter.io/latest/supported-linters/) for valid names.
 
+## Logging
+
+By default, the logging configuration is set to log messages at the `INFO` level and above.
+
+Logging can be configured using the following environment variables:
+
+| Environment Variable | Description                                                            | Default Value |
+|----------------------|------------------------------------------------------------------------|---------------|
+| `LOG_LEVEL`          | The logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. | `INFO`        |
+| `LOG_AS_JSON`        | Whether to log messages as JSON. One of `true` or `false`.             | `true`        |
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details.

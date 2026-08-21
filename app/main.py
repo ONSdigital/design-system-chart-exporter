@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Final, Literal
 
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.logging import configure_logging, get_logger
 
@@ -82,14 +82,13 @@ class HealthResponse(BaseModel):
     version: VersionInfo
     uptime: int
     start_time: str
-    checks: list[Check]
+    checks: list[Check] = Field(max_length=20)
 
 
 @app.get("/health")
 def health() -> HealthResponse:
     """Returns the service health status per the DP health check specification.
-
-    See: https://github.com/ONSdigital/dp-standards/blob/main/HEALTH_CHECK_SPECIFICATION.md
+    See: https://github.com/ONSdigital/dp-standards/blob/main/HEALTH_CHECK_SPECIFICATION.md.
     """
     log.info("health check requested")
     now = datetime.now(UTC)

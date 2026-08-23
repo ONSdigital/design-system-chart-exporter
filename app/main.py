@@ -1,107 +1,39 @@
-"""FastAPI application entrypoint."""
+"""FastAPI application entrypoint: app creation, lifespan, router registration."""
 
-import os
-import platform
-import tomllib
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Final, Literal
 
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
 
+from app.api.routes.health import router as health_router
+from app.config import get_settings
 from app.logging import configure_logging, get_logger
+from app.version import SERVICE_NAME, VERSION
 
-app = FastAPI()
-
-_START_TIME: Final = datetime.now(UTC)
-_PYPROJECT_PATH: Final = Path(__file__).parents[1] / "pyproject.toml"
-_GIT_COMMIT: Final = os.environ.get("GIT_COMMIT", "")
-_GIT_TAG: Final = os.environ.get("GIT_TAG", "")
-
-
-try:
-    _PROJECT: Final = tomllib.loads(_PYPROJECT_PATH.read_text(encoding="utf-8"))["project"]
-    _SERVICE_NAME = _PROJECT["name"]
-    _VERSION = _GIT_TAG or _GIT_COMMIT or _PROJECT["version"]
-except OSError, KeyError, tomllib.TOMLDecodeError:  # pragma: no cover
-    _SERVICE_NAME = "design-system-chart-exporter"
-    _VERSION = "unknown"
-
-
-def _iso8601(timestamp: datetime) -> str:
-    """Format a datetime as ISO 8601 UTC per the DP health check spec."""
-    return timestamp.isoformat(timespec="milliseconds").replace("+00:00", "Z")
-
-
-def _read_build_time() -> str:
-    """Convert the BUILD_TIME unix timestamp env var to an ISO 8601 string."""
-    build_time = os.environ.get("BUILD_TIME")
-    if not build_time:
-        return ""
-    try:
-        return _iso8601(datetime.fromtimestamp(int(build_time), tz=UTC))
-    except ValueError, OverflowError, OSError:
-        return ""
-
-
-_BUILD_TIME: Final = _read_build_time()
-
-configure_logging(namespace=_SERVICE_NAME)
+configure_logging(namespace=SERVICE_NAME)
 log = get_logger()
 
-Status = Literal["OK", "WARNING", "CRITICAL"]
 
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
+    """Startup and shutdown logic wrapped around the application's lifetime.
 
-class VersionInfo(BaseModel):
-    """Version details for the running service."""
+    Everything before the ``yield`` runs once per worker process before the
+    first request is accepted; everything after it runs on shutdown. Loading
+    settings here means a misconfigured pod (e.g. missing
+    CHART_EXPORTER_S3_BUCKET) crashes the worker on boot with a loud
+    ValidationError instead of surfacing as a 500 on first request.
 
-    version: str
-    git_commit: str
-    build_time: str
-    language: str
-    language_version: str
-
-
-class Check(BaseModel):
-    """Result of an individual health check."""
-
-    name: str
-    status: Status
-    status_code: int | None = None
-    message: str
-    last_checked: str | None
-    last_success: str | None
-    last_failure: str | None
-
-
-class HealthResponse(BaseModel):
-    """Response body for the health check endpoint."""
-
-    status: Status
-    version: VersionInfo
-    uptime: int
-    start_time: str
-    checks: list[Check] = Field(max_length=20)
-
-
-@app.get("/health")
-def health() -> HealthResponse:
-    """Returns the service health status per the DP health check specification.
-    See: https://github.com/ONSdigital/dp-standards/blob/main/HEALTH_CHECK_SPECIFICATION.md.
+    Later phases extend this with the Playwright browser launch/close.
     """
-    log.info("health check requested")
-    now = datetime.now(UTC)
-    return HealthResponse(
-        status="OK",
-        version=VersionInfo(
-            version=_VERSION,
-            git_commit=_GIT_COMMIT,
-            build_time=_BUILD_TIME,
-            language="python",
-            language_version=platform.python_version(),
-        ),
-        uptime=int((now - _START_TIME).total_seconds() * 1000),
-        start_time=_iso8601(_START_TIME),
-        checks=[],
-    )
+    settings = get_settings()
+    application.state.settings = settings
+    application.state.start_time = datetime.now(UTC)
+    log.info("service started", version=VERSION, s3_bucket=settings.s3_bucket)
+    yield
+    log.info("service stopping")
+
+
+app = FastAPI(lifespan=lifespan)
+app.include_router(health_router)

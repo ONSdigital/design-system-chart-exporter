@@ -1,45 +1,26 @@
-import re
 from datetime import UTC, datetime
-from http import HTTPStatus
 
-from app.main import _BUILD_TIME, _GIT_COMMIT, _read_build_time
+import pytest
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
-
-def test_health(client):
-    """Test the health endpoint."""
-    now = datetime.now(UTC)
-    response = client.get("/health")
-
-    assert response.status_code == HTTPStatus.OK
-    body = response.json()
-    assert body["status"] == "OK"
-    assert body["checks"] == []
-    assert body["version"]["version"] == "0.1.0"
-    assert body["version"]["language"] == "python"
-    assert body["version"]["git_commit"] == _GIT_COMMIT
-    assert body["version"]["build_time"] == _BUILD_TIME
-
-    # Timestamps use the ISO 8601 UTC format from the DP health check spec
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z", body["start_time"])
-
-    # Sense-check that the start_time is in the past and uptime is non-negative
-    assert datetime.fromisoformat(body["start_time"]) <= now
-    assert body["uptime"] >= 0
+from app.config import get_settings
+from app.main import app
 
 
-def test_read_build_time_set(monkeypatch):
-    """A BUILD_TIME unix timestamp is converted to an ISO 8601 string."""
-    monkeypatch.setenv("BUILD_TIME", "0")
-    assert _read_build_time() == "1970-01-01T00:00:00.000Z"
+def test_lifespan_stores_settings_and_start_time(client):
+    """Startup loads validated settings and records the start time on app.state."""
+    assert app.state.settings.s3_bucket == "test-bucket"
+    assert isinstance(app.state.start_time, datetime)
+    assert app.state.start_time.tzinfo == UTC
 
 
-def test_read_build_time_unset(monkeypatch):
-    """An unset BUILD_TIME results in an empty string."""
-    monkeypatch.delenv("BUILD_TIME", raising=False)
-    assert _read_build_time() == ""
+def test_boot_fails_loudly_without_s3_bucket(monkeypatch):
+    """A missing CHART_EXPORTER_S3_BUCKET must crash startup, not 500 later."""
+    monkeypatch.delenv("CHART_EXPORTER_S3_BUCKET", raising=False)
+    get_settings.cache_clear()
 
+    with pytest.raises(ValidationError, match="s3_bucket"), TestClient(app):
+        pass  # pragma: no cover - startup fails before the body runs
 
-def test_read_build_time_invalid(monkeypatch):
-    """A non-numeric BUILD_TIME results in an empty string."""
-    monkeypatch.setenv("BUILD_TIME", "not-a-timestamp")
-    assert _read_build_time() == ""
+    get_settings.cache_clear()

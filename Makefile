@@ -47,8 +47,12 @@ install-pre-commit:  ## Install the local git pre-commit hooks.
 	uv run pre-commit install
 
 .PHONY: test
-test:  ## Run the tests and check coverage.
-	uv run pytest -n auto --cov=app --cov-report term-missing --cov-fail-under=100
+test:  ## Run the fast tests (no browser, no Floci) and check coverage.
+	uv run pytest -n auto -m "not slow and not e2e" --cov=app --cov-report term-missing --cov-fail-under=100
+
+.PHONY: test-all
+test-all:  ## Run all tests including slow browser and e2e tests.
+	uv run pytest -n auto --cov=app --cov-report term-missing
 
 .PHONY: mypy
 mypy:  ## Run mypy.
@@ -109,6 +113,8 @@ docker-logs:  ## Show logs from the main application's Docker container
 	docker compose logs --follow web
 
 # Aliases
+.PHONY: up
+up: compose-up
 .PHONY: start
 start: compose-up
 .PHONY: stop

@@ -6,8 +6,7 @@ paths:
   /health:
     get:
       summary: Health
-      description: "Returns the service health status per the DP health check specification.\n\
-        See: https://github.com/ONSdigital/dp-standards/blob/main/HEALTH_CHECK_SPECIFICATION.md."
+      description: Returns the service health status per the DP health check specification.
       operationId: health_health_get
       responses:
         "200":

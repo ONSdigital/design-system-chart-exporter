@@ -9,6 +9,7 @@ requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.121.2",
     "gunicorn>=23.0.0",
+    "pydantic-settings>=2.15.0",
     "structlog>=26.1.0",
     "uvicorn>=0.38.0",
     "uvicorn-worker>=0.3.0",
@@ -93,9 +94,19 @@ disallow_untyped_defs = "True"
 disallow_untyped_calls = "True"
 disallow_incomplete_defs = "True"
 strict_equality = "True"
+# Tests are not type checked: fixtures and test functions stay unannotated
+exclude = ["^tests/"]
+
+[tool.pyright]
+# Keep the IDE (Pylance/pyright) from type checking tests too
+ignore = ["tests"]
 
 [tool.coverage.run]
 omit = ["app/__main__.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "slow: launches a real browser; excluded from the fast `make test` gate",
+    "e2e: needs docker compose services (Floci); excluded from the fast `make test` gate",
+]

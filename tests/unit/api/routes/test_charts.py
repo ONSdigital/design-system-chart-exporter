@@ -9,7 +9,8 @@ from app.config import get_settings
 from app.domain.exceptions import RendererBusy, RenderError, RenderTimeout, StorageError
 from app.domain.models import RenderedChart
 from app.main import app
-from tests.unit.conftest import StubExporter
+from app.storage.memory import MemoryStorageBackend
+from tests.unit.conftest import StubExporter, StubRenderer, make_png_bytes
 
 CHART_ID = UUID("6f9619ff-8b86-d011-b42d-00cf4fc964ff")
 
@@ -59,7 +60,7 @@ def test_create_chart_success(client, use_exporter):
         "width": 1200,
         "height": 640,
     }
-    assert stub.calls == [VALID_PAYLOAD["chart_config"]]
+    assert stub.calls == [(VALID_PAYLOAD["chart_config"], "en")]
 
 
 @pytest.mark.parametrize(
@@ -172,9 +173,36 @@ def test_unexpected_exception_returns_sanitised_500(tolerant_client, use_exporte
     assert "secret internal state" not in response.text
 
 
-def test_unwired_exporter_returns_500(tolerant_client):
-    """Until phase 5 wires the real exporter, the default provider raises."""
-    response = tolerant_client.post("/charts", json=VALID_PAYLOAD)
+def test_default_provider_runs_full_stack_with_swapped_state(client):
+    """No dependency override: the real deps provider assembles the real
+    ChartExportService from app.state, with the renderer and storage swapped
+    for test doubles (the browser and S3 are the only fakes in this path).
+    """
+    app.state.renderer = StubRenderer(png=make_png_bytes(2400, 1280))
+    app.state.storage = storage = MemoryStorageBackend(bucket="test-bucket")
+
+    response = client.post("/charts", json=VALID_PAYLOAD)
+
+    assert response.status_code == HTTPStatus.CREATED
+    body = response.json()
+    chart_id = UUID(body["id"])  # server-generated, valid UUID
+    assert body["key"] == f"charts/{chart_id}.png"
+    assert body["bucket"] == "test-bucket"
+    assert body["content_type"] == "image/png"
+    assert (body["width"], body["height"]) == (2400, 1280)
+    assert body["size_bytes"] == len(storage.objects[body["key"]].data)
+    # The response's Retry-After-style contract details are covered elsewhere;
+    # here the stored object itself is the proof
+    assert storage.objects[body["key"]].content_type == "image/png"
+
+
+def test_default_provider_maps_storage_fault_to_500(client):
+    """Fault injection through the real exporter: storage failure -> storage_failed."""
+    app.state.renderer = StubRenderer()
+    app.state.storage = MemoryStorageBackend(fail_with=StorageError("injected"))
+
+    response = client.post("/charts", json=VALID_PAYLOAD)
 
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
-    assert response.json()["errors"][0]["code"] == "internal_error"
+    assert response.json()["errors"][0]["code"] == "storage_failed"
+    assert "injected" not in response.text

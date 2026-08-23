@@ -6,11 +6,19 @@ paths:
   /health:
     get:
       summary: Health
-      description: Returns the service health status per the DP health check specification.
+      description: "Returns the service health status per the DP health check specification.\n\
+        \nA dead browser makes the service CRITICAL (it cannot render), reported\n\
+        with HTTP 500 so orchestrators stop routing traffic to this instance."
       operationId: health_health_get
       responses:
         "200":
           description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "500":
+          description: Service is unhealthy
           content:
             application/json:
               schema:

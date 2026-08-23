@@ -74,6 +74,12 @@ mypy:  ## Run mypy.
 pylint:  ## Run pylint.
 	uv run pylint app scripts --reports=n --output-format=colorized --rcfile=.pylintrc -j 0
 
+.PHONY: example
+example:  ## POST the sample chart payload to a locally running service.
+	curl -s -X POST "http://localhost:$(WEB_PORT)/charts" \
+		-H "Content-Type: application/json" \
+		--data @examples/chart-payload.json | python3 -m json.tool
+
 .PHONY: run
 run:  ## Run the app with uvicorn.
 	uv run uvicorn app.main:app --host 0.0.0.0 --port $(WEB_PORT) --reload

@@ -7,12 +7,13 @@ from datetime import UTC, datetime
 from fastapi import FastAPI
 
 from app.api.errors import register_exception_handlers
-from app.api.middleware import BodySizeLimitMiddleware
+from app.api.middleware import BodySizeLimitMiddleware, CorrelationIdMiddleware
 from app.api.routes.charts import router as charts_router
 from app.api.routes.health import router as health_router
 from app.config import get_settings
 from app.logging import configure_logging, get_logger
 from app.services.renderer import ChartRenderer
+from app.storage.s3 import S3StorageBackend
 from app.version import SERVICE_NAME, VERSION
 
 configure_logging(namespace=SERVICE_NAME)
@@ -42,6 +43,12 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
         render_timeout_seconds=settings.render_timeout_seconds,
         queue_timeout_seconds=settings.queue_timeout_seconds,
     )
+    application.state.storage = S3StorageBackend(
+        bucket=settings.s3_bucket,
+        region=settings.s3_region,
+        endpoint_url=settings.s3_endpoint_url,
+        set_private_acl=settings.s3_set_private_acl,
+    )
     if settings.launch_browser_on_startup:  # pragma: no cover - exercised by slow tests
         await application.state.renderer.start()
     log.info("service started", version=VERSION, s3_bucket=settings.s3_bucket)
@@ -54,4 +61,6 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(health_router)
 app.include_router(charts_router)
 app.add_middleware(BodySizeLimitMiddleware)
+# Added last = outermost: even 413s and unhandled errors carry X-Request-Id
+app.add_middleware(CorrelationIdMiddleware)
 register_exception_handlers(app)

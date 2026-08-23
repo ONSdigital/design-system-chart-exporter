@@ -7,9 +7,15 @@ import logging
 import os
 import sys
 import traceback
+from contextvars import ContextVar
 from typing import Final
 
 import structlog
+
+# Correlation ID for the request being handled, set by CorrelationIdMiddleware.
+# A ContextVar is task-local: concurrent requests in one event loop each see
+# their own value, unlike a module global.
+trace_id_var: ContextVar[str | None] = ContextVar("trace_id", default=None)
 
 # Maps structlog method names to the DP logging standard severity codes.
 _SEVERITY_LEVELS: Final[dict[str, int]] = {
@@ -81,6 +87,18 @@ def _add_exception_info(
     return event_dict
 
 
+def _add_trace_id(
+    logger: structlog.types.WrappedLogger,  # pylint: disable=unused-argument
+    method_name: str,  # pylint: disable=unused-argument
+    event_dict: structlog.types.EventDict,
+) -> structlog.types.EventDict:
+    """Add the DP standard's trace_id field for events raised during a request."""
+    trace_id = trace_id_var.get()
+    if trace_id is not None:
+        event_dict.setdefault("trace_id", trace_id)
+    return event_dict
+
+
 def _get_renderer() -> structlog.types.Processor:
     """Return the appropriate renderer based on the LOG_AS_JSON environment variable."""
     if LOG_AS_JSON:
@@ -117,6 +135,7 @@ def configure_logging(*, namespace: str, renderer: structlog.types.Processor | N
         _make_add_namespace(namespace),
         _add_severity,
         _add_spec_version,
+        _add_trace_id,
         _add_exception_info,
         structlog.processors.TimeStamper(fmt="iso", utc=True, key="created_at"),
     ]

@@ -1,17 +1,9 @@
-import struct
-
 import pytest
 
 from app.domain.exceptions import RenderError
 from app.services.png import read_png_dimensions
-
-PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-
-
-def make_png_header(width, height):
-    """Build the first 29 bytes of a PNG: signature + IHDR chunk."""
-    ihdr = struct.pack(">II", width, height) + b"\x08\x06\x00\x00\x00"
-    return PNG_SIGNATURE + b"\x00\x00\x00\r" + b"IHDR" + ihdr
+from tests.unit.conftest import PNG_SIGNATURE
+from tests.unit.conftest import make_png_bytes as make_png_header
 
 
 def test_reads_dimensions_from_ihdr():

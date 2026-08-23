@@ -1,9 +1,19 @@
+import struct
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.api.deps import get_chart_exporter
 from app.config import get_settings
 from app.main import app
+
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def make_png_bytes(width=1200, height=640):
+    """Build the first 29 bytes of a PNG (signature + IHDR): enough for dimension parsing."""
+    ihdr = struct.pack(">II", width, height) + b"\x08\x06\x00\x00\x00"
+    return PNG_SIGNATURE + b"\x00\x00\x00\r" + b"IHDR" + ihdr
 
 
 class StubExporter:
@@ -14,11 +24,30 @@ class StubExporter:
         self.error = error
         self.calls = []
 
-    async def export(self, *, chart_config):
-        self.calls.append(chart_config)
+    async def export(self, *, chart_config, language):
+        self.calls.append((chart_config, language))
         if self.error is not None:
             raise self.error
         return self.result
+
+
+class StubRenderer:
+    """Test double satisfying the SupportsRender protocol: canned PNG or an error."""
+
+    def __init__(self, png=None, error=None, ready=True):
+        self.png = png if png is not None else make_png_bytes()
+        self.error = error
+        self.is_ready = ready
+        self.html_pages = []
+
+    async def render(self, html):
+        self.html_pages.append(html)
+        if self.error is not None:
+            raise self.error
+        return self.png
+
+    async def stop(self):
+        """No-op: tests swap this onto app.state, and the lifespan stops it."""
 
 
 @pytest.fixture()

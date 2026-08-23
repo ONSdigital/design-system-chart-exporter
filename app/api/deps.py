@@ -6,17 +6,18 @@ from fastapi import Request
 
 from app.api.errors import RequestError
 from app.domain.models import RenderedChart
+from app.services.exporter import ChartExportService
 
 
 class ChartExporter(Protocol):  # pylint: disable=too-few-public-methods
     """What the charts route needs from the service layer.
 
     A Protocol (structural typing): anything with a matching async ``export``
-    method satisfies it — the real service in phase 5, stubs in tests — with
+    method satisfies it — the real ChartExportService, stubs in tests — with
     no inheritance or imports required in either direction.
     """
 
-    async def export(self, *, chart_config: dict[str, Any]) -> RenderedChart:
+    async def export(self, *, chart_config: dict[str, Any], language: str) -> RenderedChart:
         """Render chart_config to a PNG, store it, and return the object metadata."""
 
 
@@ -33,23 +34,14 @@ async def require_json_content_type(request: Request) -> None:
         raise RequestError(415, "unsupported_media_type", "Content-Type must be application/json.")
 
 
-class _UnwiredExporter:  # pylint: disable=too-few-public-methods
-    """Placeholder exporter that fails on use, not on dependency resolution.
+def get_chart_exporter(request: Request) -> ChartExporter:
+    """Provide the chart exporter, wired to the process-wide renderer/storage.
 
-    Dependencies resolve BEFORE the request body is validated, so the
-    provider itself must stay cheap and side-effect free — raising here
-    instead of in the provider keeps validation 400s working while the real
-    service is not yet wired.
+    The renderer and storage live on app.state (created once in the
+    lifespan); this provider assembles a thin service object per request.
+    Providers must stay cheap and side-effect free: FastAPI resolves them
+    BEFORE the request body is validated. Tests either override this
+    dependency or swap app.state.renderer / app.state.storage.
     """
-
-    async def export(self, *, chart_config: dict[str, Any]) -> RenderedChart:
-        raise NotImplementedError("chart exporter is not wired up yet (phase 5)")
-
-
-def get_chart_exporter() -> ChartExporter:
-    """Provide the chart exporter service.
-
-    Returns the real service from phase 5 onwards; tests override this
-    dependency with stubs via ``app.dependency_overrides[get_chart_exporter]``.
-    """
-    return _UnwiredExporter()
+    state = request.app.state
+    return ChartExportService(renderer=state.renderer, storage=state.storage, key_prefix=state.settings.s3_key_prefix)

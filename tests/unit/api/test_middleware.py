@@ -56,4 +56,39 @@ def test_requests_without_body_are_unaffected(client_64_byte_cap):
     """GET /health has no body and must be untouched by the cap."""
     response = client_64_byte_cap.get("/health")
 
-    assert response.status_code == HTTPStatus.OK
+    # 500 CRITICAL (no browser in fast tests) — but not a 413
+    assert response.status_code != HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+    assert response.json()["status"] == "CRITICAL"
+
+
+# --- Correlation ID middleware ---------------------------------------------
+
+
+def test_generates_request_id_when_absent(client):
+    response = client.get("/health")
+
+    # Generated IDs are uuid4().hex: 32 lowercase hex characters
+    assert len(response.headers["x-request-id"]) == 32
+    assert all(c in "0123456789abcdef" for c in response.headers["x-request-id"])
+
+
+def test_echoes_caller_supplied_request_id(client):
+    response = client.get("/health", headers={"X-Request-Id": "wagtail-req-42"})
+
+    assert response.headers["x-request-id"] == "wagtail-req-42"
+
+
+def test_replaces_unsafe_request_id(client):
+    """Unsafe inbound values (log injection, oversized) are replaced, not echoed."""
+    response = client.get("/health", headers={"X-Request-Id": "x" * 200})
+
+    assert response.headers["x-request-id"] != "x" * 200
+    assert len(response.headers["x-request-id"]) == 32
+
+
+def test_error_responses_carry_request_id(client):
+    """The middleware is outermost: even 404 error documents carry the header."""
+    response = client.get("/nope", headers={"X-Request-Id": "trace-me"})
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert response.headers["x-request-id"] == "trace-me"

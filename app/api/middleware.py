@@ -14,16 +14,59 @@ the request, defeating the point of a streaming cap. Two layers of defence:
    api/errors.py mapping 413 -> request_body_too_large).
 """
 
+import re
+from uuid import uuid4
+
 from starlette.exceptions import HTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.api.errors import error_response
 from app.config import get_settings
+from app.logging import trace_id_var
 from app.schemas.responses import ErrorItem
+
+# Accepted inbound X-Request-Id values; anything else (too long, control
+# characters, log-injection attempts) is replaced with a generated ID
+_SAFE_TRACE_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 
 
 def _description(max_bytes: int) -> str:
     return f"Request body must not exceed {max_bytes} bytes."
+
+
+class CorrelationIdMiddleware:  # pylint: disable=too-few-public-methods
+    """Propagate the X-Request-Id correlation header (per ONS dp-net).
+
+    Reads the inbound header (generating an ID when absent or unsafe), stores
+    it in the trace_id contextvar so every log event in this request carries
+    the DP standard's trace_id field, and echoes it on the response so the
+    caller can correlate. The contextvar is reset in a finally block: worker
+    tasks are reused across requests, so a stale value must never leak.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Wrap one request in a correlation ID context."""
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        header = next((value for name, value in scope["headers"] if name == b"x-request-id"), None)
+        candidate = header.decode("latin-1") if header is not None else ""
+        trace_id = candidate if _SAFE_TRACE_ID.fullmatch(candidate) else uuid4().hex
+
+        async def send_with_header(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                message["headers"] = [*message["headers"], (b"x-request-id", trace_id.encode("latin-1"))]
+            await send(message)
+
+        token = trace_id_var.set(trace_id)
+        try:
+            await self.app(scope, receive, send_with_header)
+        finally:
+            trace_id_var.reset(token)
 
 
 class BodySizeLimitMiddleware:  # pylint: disable=too-few-public-methods

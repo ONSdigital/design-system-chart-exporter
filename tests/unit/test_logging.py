@@ -9,9 +9,11 @@ from app.logging import (
     _add_exception_info,
     _add_severity,
     _add_spec_version,
+    _add_trace_id,
     _get_renderer,
     configure_logging,
     get_logger,
+    trace_id_var,
 )
 
 
@@ -55,6 +57,22 @@ def test_add_spec_version_leaves_existing_value_untouched():
     event_dict = _add_spec_version(logger=None, method_name="info", event_dict={"spec_version": "v2"})
 
     assert event_dict["spec_version"] == "v2"
+
+
+def test_add_trace_id_uses_contextvar_when_set():
+    token = trace_id_var.set("abc-123")
+    try:
+        event_dict = _add_trace_id(logger=None, method_name="info", event_dict={})
+    finally:
+        trace_id_var.reset(token)
+
+    assert event_dict["trace_id"] == "abc-123"
+
+
+def test_add_trace_id_omitted_outside_request_context():
+    event_dict = _add_trace_id(logger=None, method_name="info", event_dict={})
+
+    assert "trace_id" not in event_dict
 
 
 def test_add_exception_info_leaves_event_dict_unchanged_without_exc_info():

@@ -13,6 +13,7 @@ EXPECTED_413 = {"errors": [{"code": "request_body_too_large", "description": "Re
 def client_64_byte_cap(monkeypatch):
     """A client whose app is configured with a tiny 64-byte body cap."""
     monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", "test-bucket")
+    monkeypatch.setenv("CHART_EXPORTER_LAUNCH_BROWSER_ON_STARTUP", "false")
     monkeypatch.setenv("CHART_EXPORTER_MAX_BODY_BYTES", "64")
     get_settings.cache_clear()
     with TestClient(app) as test_client:

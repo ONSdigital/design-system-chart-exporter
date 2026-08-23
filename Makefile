@@ -46,12 +46,24 @@ pre-commit:  ## Run all pre-commit hooks across the repository.
 install-pre-commit:  ## Install the local git pre-commit hooks.
 	uv run pre-commit install
 
+# Vendored DS templates are needed by the templating tests; downloaded once
+templates/components:
+	./scripts/load-design-system-templates.sh $$(cat .design-system-version)
+
+.PHONY: design-system
+design-system:  ## Download and vendor the ONS Design System templates and assets.
+	./scripts/load-design-system-templates.sh $$(cat .design-system-version)
+
+.PHONY: playwright-browsers
+playwright-browsers:  ## Install the Chromium browser used by the renderer.
+	uv run playwright install chromium
+
 .PHONY: test
-test:  ## Run the fast tests (no browser, no Floci) and check coverage.
+test: | templates/components  ## Run the fast tests (no browser, no Floci) and check coverage.
 	uv run pytest -n auto -m "not slow and not e2e" --cov=app --cov-report term-missing --cov-fail-under=100
 
 .PHONY: test-all
-test-all:  ## Run all tests including slow browser and e2e tests.
+test-all: playwright-browsers | templates/components  ## Run all tests including slow browser and e2e tests.
 	uv run pytest -n auto --cov=app --cov-report term-missing
 
 .PHONY: mypy

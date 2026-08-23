@@ -30,6 +30,7 @@ def client(monkeypatch):
     cleared on both sides so no test observes another test's environment.
     """
     monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", "test-bucket")
+    monkeypatch.setenv("CHART_EXPORTER_LAUNCH_BROWSER_ON_STARTUP", "false")
     get_settings.cache_clear()
     with TestClient(app) as test_client:
         yield test_client

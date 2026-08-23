@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="{{ language }}">
+    <head>
+        <meta charset="utf-8" />
+        <title>Chart</title>
+        {# Assets are inlined (Markup-wrapped by the templating service): the
+           render context blocks all network access, so nothing may be fetched #}
+        <style>
+            {{ design_system_css }}
+        </style>
+    </head>
+    <body>
+        {% from "components/chart/_macro.njk" import onsChart %}
+        <div class="ons-container">{{ onsChart(chart_config) }}</div>
+        <script>
+            {{ design_system_js }}
+        </script>
+    </body>
+</html>

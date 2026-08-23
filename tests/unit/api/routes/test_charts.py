@@ -24,6 +24,7 @@ VALID_PAYLOAD = {
 def tolerant_client(monkeypatch):
     """Like `client`, but returns 500 responses instead of re-raising server errors."""
     monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", "test-bucket")
+    monkeypatch.setenv("CHART_EXPORTER_LAUNCH_BROWSER_ON_STARTUP", "false")
     get_settings.cache_clear()
     with TestClient(app, raise_server_exceptions=False) as test_client:
         yield test_client

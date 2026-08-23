@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     queue_timeout_seconds: float = Field(default=5.0, gt=0)
     max_body_bytes: int = Field(default=1_048_576, gt=0)
 
+    # True in production: launching the browser at startup fails fast on a
+    # broken install and makes readiness meaningful from the first request.
+    # Tests set this false so the fast API suite never needs a browser
+    # (dependency overrides cannot reach the lifespan).
+    launch_browser_on_startup: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

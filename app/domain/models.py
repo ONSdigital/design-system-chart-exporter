@@ -15,3 +15,13 @@ class RenderedChart:
     width: int
     height: int
     created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class StoredObject:
+    """Metadata of an object persisted by a storage backend."""
+
+    bucket: str
+    key: str
+    size_bytes: int
+    content_type: str

@@ -85,7 +85,8 @@ indent-style = "space"
 # Global mypy options
 no_implicit_optional = "True"
 ignore_missing_imports = "True"
-warn_unused_configs = "True"
+# Off so the tests.* override below is not reported unused when checking app only
+warn_unused_configs = "False"
 warn_no_return = "False"
 warn_unused_ignores = "True"
 warn_return_any = "True"
@@ -96,6 +97,12 @@ disallow_incomplete_defs = "True"
 strict_equality = "True"
 # Tests are not type checked: fixtures and test functions stay unannotated
 exclude = ["^tests/"]
+
+[[tool.mypy.overrides]]
+# The exclude above does not apply to explicitly-passed files (e.g. the IDE
+# checking an open test file); this override silences those too
+module = "tests.*"
+ignore_errors = true
 
 [tool.pyright]
 # Keep the IDE (Pylance/pyright) from type checking tests too

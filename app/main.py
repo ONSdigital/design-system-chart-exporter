@@ -6,6 +6,9 @@ from datetime import UTC, datetime
 
 from fastapi import FastAPI
 
+from app.api.errors import register_exception_handlers
+from app.api.middleware import BodySizeLimitMiddleware
+from app.api.routes.charts import router as charts_router
 from app.api.routes.health import router as health_router
 from app.config import get_settings
 from app.logging import configure_logging, get_logger
@@ -37,3 +40,6 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(health_router)
+app.include_router(charts_router)
+app.add_middleware(BodySizeLimitMiddleware)
+register_exception_handlers(app)

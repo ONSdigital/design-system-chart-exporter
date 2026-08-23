@@ -15,8 +15,127 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+  /charts:
+    post:
+      summary: Create Chart
+      description: Render the chart config to a PNG, store it privately, and return
+        its metadata.
+      operationId: create_chart_charts_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChartRenderRequest"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChartObjectResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDocument"
+        "413":
+          description: Content Too Large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDocument"
+        "415":
+          description: Unsupported Media Type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDocument"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDocument"
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorDocument"
+        "422":
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
 components:
   schemas:
+    ChartObjectResponse:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        bucket:
+          type: string
+          title: Bucket
+        key:
+          type: string
+          title: Key
+        content_type:
+          type: string
+          title: Content Type
+        size_bytes:
+          type: integer
+          title: Size Bytes
+        width:
+          type: integer
+          title: Width
+        height:
+          type: integer
+          title: Height
+      type: object
+      required:
+        - id
+        - created_at
+        - bucket
+        - key
+        - content_type
+        - size_bytes
+        - width
+        - height
+      title: ChartObjectResponse
+      description: "201 response body: metadata of the stored chart object."
+    ChartRenderRequest:
+      properties:
+        language:
+          type: string
+          const: en
+          title: Language
+        device:
+          type: string
+          const: desktop
+          title: Device
+        chart_config:
+          additionalProperties: true
+          type: object
+          title: Chart Config
+      type: object
+      required:
+        - language
+        - device
+        - chart_config
+      title: ChartRenderRequest
+      description: "Body of POST /charts.\n\nchart_config is an opaque vendor payload\
+        \ owned by the Design System\ncontract (camelCase, Highcharts-derived). We\
+        \ validate only that it is a\nnon-empty object \u2014 never its internal fields,\
+        \ so the contract can evolve\nwithout changes here."
     Check:
       properties:
         name:
@@ -62,6 +181,41 @@ components:
         - last_failure
       title: Check
       description: Result of an individual health check.
+    ErrorDocument:
+      properties:
+        errors:
+          items:
+            $ref: "#/components/schemas/ErrorItem"
+          type: array
+          title: Errors
+      type: object
+      required:
+        - errors
+      title: ErrorDocument
+      description: Envelope returned by every non-2xx response.
+    ErrorItem:
+      properties:
+        code:
+          type: string
+          title: Code
+        description:
+          type: string
+          title: Description
+      type: object
+      required:
+        - code
+        - description
+      title: ErrorItem
+      description: A single error in the spec's error document.
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: "#/components/schemas/ValidationError"
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
     HealthResponse:
       properties:
         status:
@@ -94,6 +248,32 @@ components:
         - checks
       title: HealthResponse
       description: Response body for the health check endpoint.
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      title: ValidationError
     VersionInfo:
       properties:
         version:

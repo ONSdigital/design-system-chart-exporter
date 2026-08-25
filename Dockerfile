@@ -9,11 +9,13 @@
 
 FROM python:3.14-slim AS base
 
+ARG APP_UID=10001
+
 WORKDIR /app
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /uvx /bin/
 
-RUN useradd --create-home exporter \
+RUN useradd --create-home --uid ${APP_UID} --user-group exporter \
     && chown exporter:exporter /app
 
 ENV UV_COMPILE_BYTECODE=1 \
@@ -21,7 +23,7 @@ ENV UV_COMPILE_BYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH=/app/.venv/bin:$PATH
 
-USER exporter
+USER ${APP_UID}
 
 COPY --chown=exporter:exporter pyproject.toml uv.lock ./
 

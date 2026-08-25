@@ -13,7 +13,7 @@ WORKDIR /app
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /uvx /bin/
 
-RUN useradd --create-home exporter \
+RUN useradd --create-home --uid 10001 --user-group exporter \
     && chown exporter:exporter /app
 
 ENV UV_COMPILE_BYTECODE=1 \
@@ -21,7 +21,7 @@ ENV UV_COMPILE_BYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH=/app/.venv/bin:$PATH
 
-USER exporter
+USER 10001
 
 COPY --chown=exporter:exporter pyproject.toml uv.lock ./
 

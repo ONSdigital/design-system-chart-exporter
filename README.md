@@ -243,15 +243,21 @@ Ensure you have the following installed:
    make up
    ```
 
-   Or run the service directly with uvicorn (requires Floci or another S3
-   endpoint to be reachable, and the environment set):
+   Or run the service on the host (outside Docker), with only the Floci S3
+   emulator in a container. Copy the example environment file once, then start
+   the infrastructure and the app:
 
    ```bash
-   CHART_EXPORTER_S3_BUCKET=ons-charts \
-   CHART_EXPORTER_S3_ENDPOINT_URL=http://localhost:4566 \
-   AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=us-east-1 \
-   make run
+   cp .env.example .env   # git-ignored; `make run` loads it automatically
+   make up-deps           # start Floci (S3) only, with the charts bucket ready
+   make run               # uvicorn --reload on the host, reading .env
    ```
+
+   This requires the DS templates and the Chromium browser from the
+   installation steps above (`make design-system`, `make playwright-browsers`).
+   If you prefer not to use `.env`, export the same variables in your shell
+   before `make run` — `CHART_EXPORTER_S3_BUCKET`,
+   `CHART_EXPORTER_S3_ENDPOINT_URL` and the dummy `AWS_*` credentials.
 
 5. Render a chart
 

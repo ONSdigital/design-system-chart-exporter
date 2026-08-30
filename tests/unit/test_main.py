@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from app.config import get_settings
 from app.main import app
+from tests.helpers import StubRenderer
 
 
 def test_lifespan_stores_settings_and_start_time(client):
@@ -23,4 +24,19 @@ def test_boot_fails_loudly_without_s3_bucket(monkeypatch):
     with pytest.raises(ValidationError, match="s3_bucket"), TestClient(app):
         pass  # pragma: no cover - startup fails before the body runs
 
+    get_settings.cache_clear()
+
+
+def test_lifespan_stops_the_renderer_on_shutdown(monkeypatch):
+    """Shutdown must close the browser: otherwise every deploy leaks Chromium processes."""
+    monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", "test-bucket")
+    monkeypatch.setenv("CHART_EXPORTER_LAUNCH_BROWSER_ON_STARTUP", "false")
+    get_settings.cache_clear()
+    stub = StubRenderer()
+
+    with TestClient(app):
+        app.state.renderer = stub
+        assert stub.stopped is False
+
+    assert stub.stopped is True
     get_settings.cache_clear()

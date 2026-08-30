@@ -38,6 +38,7 @@ def test_defaults(monkeypatch):
     assert settings.render_timeout_seconds == 15.0
     assert settings.queue_timeout_seconds == 5.0
     assert settings.max_body_bytes == 1_048_576
+    assert settings.launch_browser_on_startup is True
 
 
 def test_env_overrides(monkeypatch):
@@ -74,3 +75,41 @@ def test_get_settings_is_cached(monkeypatch):
 
     assert first is second
     assert second.s3_bucket == "test-bucket"
+
+
+def test_settings_are_immutable(monkeypatch):
+    """Settings is a frozen value object: nothing can reconfigure the service at runtime."""
+    monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", "test-bucket")
+    settings = Settings()
+
+    with pytest.raises(ValidationError):
+        settings.s3_bucket = "other-bucket"
+
+
+LIMIT_FIELDS = [
+    "viewport_width",
+    "viewport_height",
+    "device_scale_factor",
+    "max_concurrent_renders",
+    "render_timeout_seconds",
+    "queue_timeout_seconds",
+    "max_body_bytes",
+]
+
+
+@pytest.mark.parametrize("field", LIMIT_FIELDS)
+def test_every_limit_rejects_zero(monkeypatch, field):
+    monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", "test-bucket")
+    monkeypatch.setenv(f"CHART_EXPORTER_{field.upper()}", "0")
+
+    with pytest.raises(ValidationError, match=field):
+        Settings()
+
+
+@pytest.mark.parametrize("field", LIMIT_FIELDS)
+def test_every_limit_accepts_one(monkeypatch, field):
+    """The bound is strictly greater than zero: 1 is the smallest valid value."""
+    monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", "test-bucket")
+    monkeypatch.setenv(f"CHART_EXPORTER_{field.upper()}", "1")
+
+    assert getattr(Settings(), field) == 1

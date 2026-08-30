@@ -8,6 +8,7 @@ is covered by the Floci integration tests (marked e2e).
 
 import boto3
 import pytest
+from botocore.exceptions import EndpointConnectionError
 from botocore.stub import Stubber
 
 from app.domain.exceptions import StorageError
@@ -84,3 +85,37 @@ def test_builds_own_client_for_real_aws():
 
     assert backend._client.meta.endpoint_url.startswith("https://")
     assert backend._client.meta.config.s3 is None
+
+
+def test_botocore_error_raises_storage_error():
+    """Client-side failures (unreachable endpoint, no credentials) are BotoCoreError, not ClientError."""
+
+    class UnreachableClient:
+        def put_object(self, **kwargs):
+            raise EndpointConnectionError(endpoint_url="http://floci:4566")
+
+    backend = S3StorageBackend(bucket="ons-charts", client=UnreachableClient())
+
+    with pytest.raises(StorageError, match=r"charts/abc\.png"):
+        backend.put(key="charts/abc.png", data=b"x", content_type="image/png")
+
+
+def test_private_acl_is_the_default(s3_client):
+    """Without explicit configuration the safe behaviour (ACL=private) applies."""
+    backend = S3StorageBackend(bucket="ons-charts", client=s3_client)
+    with Stubber(s3_client) as stubber:
+        stubber.add_response(
+            "put_object",
+            {},
+            expected_params={
+                "Bucket": "ons-charts",
+                "Key": "charts/abc.png",
+                "Body": b"x",
+                "ContentType": "image/png",
+                "ACL": "private",
+            },
+        )
+
+        backend.put(key="charts/abc.png", data=b"x", content_type="image/png")
+
+        stubber.assert_no_pending_responses()

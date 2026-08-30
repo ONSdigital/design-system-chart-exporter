@@ -7,18 +7,7 @@ import pytest
 
 from app.domain.exceptions import RenderError
 from app.services.templating import extend, render_chart_html
-
-CHART_CONFIG = {
-    "chartType": "column",
-    "title": "Monthly Sales Revenue",
-    "subtitle": "Revenue in thousands",
-    "id": "sales-chart-001",
-    "theme": "primary",
-    "legend": False,
-    "series": [{"data": [45.5, 52.3, 48.7], "name": "Sales"}],
-    "xAxis": {"categories": ["Jan", "Feb", "Mar"], "title": "Month", "type": "linear"},
-    "yAxis": {"title": "Revenue"},
-}
+from tests.helpers import CHART_CONFIG
 
 
 def extract_config_json(html):

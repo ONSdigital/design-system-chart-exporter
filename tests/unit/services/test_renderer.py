@@ -6,14 +6,17 @@ real Chromium via Playwright and cover the browser-touching internals.
 """
 
 import asyncio
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
+from playwright.async_api import Error as PlaywrightError
 
-from app.domain.exceptions import RendererBusy, RenderTimeout
+from app.domain.exceptions import RendererBusy, RenderError, RenderTimeout
 from app.services.png import read_png_dimensions
 from app.services.renderer import ChartRenderer
 from app.services.templating import render_chart_html
-from tests.unit.services.test_templating import CHART_CONFIG
+from tests.helpers import CHART_CONFIG
 
 
 def make_renderer(**overrides):
@@ -59,29 +62,30 @@ async def test_queue_timeout_raises_renderer_busy():
 async def test_semaphore_bounds_concurrency():
     """With one slot, a second render must wait; it gets the slot on release."""
     renderer = make_renderer(queue_timeout_seconds=5.0)
-    release_first = asyncio.Event()
+    release = asyncio.Event()
+    entered = {"first": asyncio.Event(), "second": asyncio.Event()}
     running = []
 
     async def controlled_render(html):
         running.append(html)
-        await release_first.wait()
+        entered[html].set()
+        await release.wait()
         return b"png-bytes"
 
     renderer._do_render = controlled_render
 
     first = asyncio.ensure_future(renderer.render("first"))
-    await asyncio.sleep(0.05)
-
+    await entered["first"].wait()  # first holds the only slot
     second = asyncio.ensure_future(renderer.render("second"))
-    await asyncio.sleep(0.05)
 
-    # Only the first render entered _do_render; the second is queued
+    # The second render must NOT enter _do_render while the slot is held
+    with pytest.raises(TimeoutError):
+        await asyncio.wait_for(entered["second"].wait(), timeout=0.2)
     assert running == ["first"]
 
-    release_first.set()
+    release.set()
     assert await first == b"png-bytes"
     assert await second == b"png-bytes"
-
     assert running == ["first", "second"]
 
 
@@ -153,3 +157,118 @@ async def test_browser_crash_recovery(renderer):
 
     assert read_png_dimensions(png) == (800, 600)
     assert renderer.is_ready is True
+
+
+@pytest.fixture()
+def local_http_server():
+    """A real HTTP listener on 127.0.0.1 that records every request it receives."""
+    hits = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            hits.append(self.path)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"x")
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield server.server_port, hits
+    server.shutdown()
+
+
+@pytest.mark.slow
+async def test_render_context_cannot_reach_the_network(renderer, local_http_server):
+    """SSRF mitigation: every request the page makes is aborted, whatever the initiator."""
+    port, hits = local_http_server
+    base = f"http://127.0.0.1:{port}"
+    html = f"""<html><head><link rel="stylesheet" href="{base}/css"></head><body>
+        <img src="{base}/img"><iframe src="{base}/frame"></iframe>
+        <script>fetch("{base}/fetch"); new Image().src = "{base}/img2";</script>
+        </body></html>"""
+
+    await renderer.render(html)
+
+    assert hits == []
+
+
+@pytest.mark.slow
+async def test_context_is_closed_after_a_successful_render(renderer):
+    await renderer.render("<html><body>x</body></html>")
+
+    assert renderer._browser.contexts == []
+
+
+@pytest.mark.slow
+async def test_context_is_closed_after_a_render_timeout(monkeypatch):
+    """A timed-out render must not leak its context: that is the memory the semaphore protects."""
+    renderer = make_renderer(render_timeout_seconds=0.5)
+    await renderer.start()
+
+    async def hang_forever(page):
+        await asyncio.sleep(60)
+
+    monkeypatch.setattr(renderer, "_wait_until_ready", hang_forever)
+    try:
+        with pytest.raises(RenderTimeout):
+            await renderer.render("<html><body>x</body></html>")
+
+        assert renderer._browser.contexts == []
+        assert not renderer._sem.locked()
+    finally:
+        await renderer.stop()
+
+
+@pytest.mark.slow
+async def test_playwright_failures_become_render_error_and_close_the_context(renderer, monkeypatch):
+    async def explode(page):
+        raise PlaywrightError("boom")
+
+    monkeypatch.setattr(renderer, "_wait_until_ready", explode)
+
+    with pytest.raises(RenderError, match="browser render failed"):
+        await renderer.render("<html><body>x</body></html>")
+
+    assert renderer._browser.contexts == []
+
+
+@pytest.mark.slow
+async def test_concurrent_renders_on_a_dead_browser_relaunch_it_once(monkeypatch):
+    """N requests hitting a crashed browser must trigger exactly one relaunch (the lock)."""
+    renderer = make_renderer(max_concurrent_renders=5, queue_timeout_seconds=5.0)
+    await renderer.start()
+    try:
+        await renderer._browser.close()  # simulate a crash
+        browser_type = renderer._playwright.chromium
+        original_launch = browser_type.launch
+        launches = []
+
+        async def counting_launch(**kwargs):
+            launches.append(kwargs)
+            return await original_launch(**kwargs)
+
+        monkeypatch.setattr(browser_type, "launch", counting_launch)
+
+        results = await asyncio.gather(*(renderer.render("<html><body>x</body></html>") for _ in range(5)))
+
+        assert len(launches) == 1
+        assert all(read_png_dimensions(png) == (800, 600) for png in results)
+        assert renderer.is_ready is True
+    finally:
+        await renderer.stop()
+
+
+@pytest.mark.slow
+async def test_stop_closes_the_browser_and_is_idempotent():
+    renderer = make_renderer()
+    await renderer.start()
+    browser = renderer._browser
+
+    await renderer.stop()
+
+    assert browser.is_connected() is False
+    assert renderer.is_ready is False
+    await renderer.stop()  # safe to call again (and on a never-started renderer)

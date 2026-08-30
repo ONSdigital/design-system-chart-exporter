@@ -8,8 +8,7 @@ import pytest
 from app.domain.exceptions import RendererBusy, RenderError, StorageError
 from app.services.exporter import ChartExportService
 from app.storage.memory import MemoryStorageBackend
-from tests.unit.conftest import StubRenderer, make_png_bytes
-from tests.unit.services.test_templating import CHART_CONFIG
+from tests.helpers import CHART_CONFIG, StubRenderer, make_png_bytes
 
 KEY_PATTERN = r"charts/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}\.png"
 
@@ -86,3 +85,18 @@ async def test_storage_errors_propagate():
 
     with pytest.raises(StorageError, match="bucket on fire"):
         await service.export(chart_config=CHART_CONFIG, language="en")
+
+
+async def test_export_logs_measured_durations_without_the_config(json_logs):
+    renderer = StubRenderer(delay=0.05)
+    service = make_service(renderer, MemoryStorageBackend())
+
+    chart = await service.export(chart_config=CHART_CONFIG, language="en")
+
+    _, events = json_logs()
+    [event] = [event for event in events if event["event"] == "chart exported"]
+    assert event["chart_id"] == str(chart.id)
+    assert 40 <= event["render_ms"] < 500
+    assert 0 <= event["upload_ms"] < 500
+    assert "chart_config" not in event
+    assert CHART_CONFIG["title"] not in str(event)

@@ -10,7 +10,7 @@ from app.domain.exceptions import RendererBusy, RenderError, RenderTimeout, Stor
 from app.domain.models import RenderedChart
 from app.main import app
 from app.storage.memory import MemoryStorageBackend
-from tests.unit.conftest import StubExporter, StubRenderer, make_png_bytes
+from tests.helpers import CHART_CONFIG, StubExporter, StubRenderer, make_png_bytes
 
 CHART_ID = UUID("6f9619ff-8b86-d011-b42d-00cf4fc964ff")
 
@@ -216,3 +216,72 @@ def test_default_provider_maps_storage_fault_to_500(client):
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
     assert response.json()["errors"][0]["code"] == "storage_failed"
     assert "injected" not in response.text
+
+
+def _swap_in_fakes():
+    app.state.renderer = StubRenderer()
+    app.state.storage = MemoryStorageBackend(bucket="test-bucket")
+
+
+def test_chart_config_never_appears_in_logs(client, json_logs):
+    """Security requirement: charts may contain pre-release data; no log line may carry the config."""
+    sentinel = "SENTINEL-PRE-RELEASE-FIGURE-8675309"
+    _swap_in_fakes()
+
+    tainted = {**CHART_CONFIG, "title": sentinel, "series": [{"data": [1], "name": sentinel}]}
+    ok = client.post("/charts", json={**VALID_PAYLOAD, "chart_config": tainted})
+    bad = client.post("/charts", json={**VALID_PAYLOAD, "language": "cy", "chart_config": tainted})
+    # A config that breaks templating: the RenderError message must not carry config values either
+    broken = client.post("/charts", json={**VALID_PAYLOAD, "chart_config": {**tainted, "series": 42}})
+
+    assert (ok.status_code, bad.status_code, broken.status_code) == (
+        HTTPStatus.CREATED,
+        HTTPStatus.BAD_REQUEST,
+        HTTPStatus.INTERNAL_SERVER_ERROR,
+    )
+    raw, events = json_logs()
+    assert any(event["event"] == "chart exported" for event in events), "log capture is not working"
+    assert sentinel not in raw
+
+
+def test_log_events_carry_the_request_trace_id(client, json_logs):
+    """The correlation ID reaches every log event emitted while handling the request."""
+    _swap_in_fakes()
+
+    client.post("/charts", json=VALID_PAYLOAD, headers={"X-Request-Id": "trace-abc"})
+
+    _, events = json_logs()
+    exported = [event for event in events if event["event"] == "chart exported"]
+    assert exported
+    assert all(event["trace_id"] == "trace-abc" for event in exported)
+
+
+def test_key_prefix_comes_from_settings(client_factory):
+    """The provider wires settings.s3_key_prefix into the service."""
+    with client_factory(s3_key_prefix="custom-prefix/") as client:
+        _swap_in_fakes()
+
+        body = client.post("/charts", json=VALID_PAYLOAD).json()
+
+    assert body["key"] == f"custom-prefix/{body['id']}.png"
+
+
+@pytest.mark.parametrize(("queue_timeout", "expected"), [("2", "2"), ("0.4", "1"), ("7.6", "8")])
+def test_retry_after_derives_from_queue_timeout(client_factory, use_exporter, queue_timeout, expected):
+    """Retry-After is the configured queue timeout, rounded, never below 1."""
+    with client_factory(queue_timeout_seconds=queue_timeout) as client:
+        use_exporter(StubExporter(error=RendererBusy()))
+
+        response = client.post("/charts", json=VALID_PAYLOAD)
+
+    assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
+    assert response.headers["retry-after"] == expected
+
+
+def test_error_codes_are_unique_per_response(client):
+    """Several problems in one field must not produce duplicate error items."""
+    response = client.post("/charts", json={"language": None, "device": None, "chart_config": None})
+
+    codes = [error["code"] for error in response.json()["errors"]]
+    assert len(codes) == len(set(codes))
+    assert codes == ["invalid_language", "invalid_device", "invalid_chart_config"]

@@ -1,10 +1,10 @@
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
 from app.main import app
-from app.version import BUILD_TIME, GIT_COMMIT
-from tests.unit.conftest import StubRenderer
+from app.version import BUILD_TIME, GIT_COMMIT, VERSION
+from tests.helpers import StubRenderer
 
 ISO_8601 = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z"
 
@@ -19,7 +19,7 @@ def test_health_ok_when_browser_ready(client):
     assert response.status_code == HTTPStatus.OK
     body = response.json()
     assert body["status"] == "OK"
-    assert body["version"]["version"] == "0.1.0"
+    assert body["version"]["version"] == VERSION
     assert body["version"]["language"] == "python"
     assert body["version"]["git_commit"] == GIT_COMMIT
     assert body["version"]["build_time"] == BUILD_TIME
@@ -55,3 +55,21 @@ def test_health_critical_when_browser_down(client):
     assert check["message"] == "chromium browser is not connected"
     assert check["last_success"] is None
     assert re.fullmatch(ISO_8601, check["last_failure"])
+
+
+def test_uptime_is_reported_in_milliseconds(client):
+    app.state.renderer = StubRenderer(ready=True)
+    app.state.start_time = datetime.now(UTC) - timedelta(seconds=2)
+
+    body = client.get("/health").json()
+
+    assert 2000 <= body["uptime"] < 60_000
+
+
+def test_health_needs_no_body_and_ignores_content_type(client):
+    """GET /health is on a different router: the JSON content-type guard must not apply."""
+    app.state.renderer = StubRenderer(ready=True)
+
+    response = client.get("/health", headers={"content-type": "text/plain"})
+
+    assert response.status_code == HTTPStatus.OK

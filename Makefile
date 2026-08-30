@@ -80,9 +80,13 @@ example:  ## POST the sample chart payload to a locally running service.
 		-H "Content-Type: application/json" \
 		--data @examples/chart-payload.json | python3 -m json.tool
 
+.PHONY: up-deps
+up-deps: | templates/components  ## Start only the local infrastructure (Floci S3) for host-run development.
+	docker compose up -d --wait floci
+
 .PHONY: run
-run:  ## Run the app with uvicorn.
-	uv run uvicorn app.main:app --host 0.0.0.0 --port $(WEB_PORT) --reload
+run: | templates/components  ## Run the app on the host with uvicorn (loads .env if present).
+	uv run $(if $(wildcard .env),--env-file .env,) uvicorn app.main:app --host 0.0.0.0 --port $(WEB_PORT) --reload
 
 .PHONY: install
 install:  ## Install the dependencies excluding dev.

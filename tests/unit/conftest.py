@@ -28,6 +28,7 @@ class StubExporter:
         self.calls.append((chart_config, language))
         if self.error is not None:
             raise self.error
+
         return self.result
 
 
@@ -44,6 +45,7 @@ class StubRenderer:
         self.html_pages.append(html)
         if self.error is not None:
             raise self.error
+
         return self.png
 
     async def stop(self):
@@ -60,7 +62,9 @@ def client(monkeypatch):
     """
     monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", "test-bucket")
     monkeypatch.setenv("CHART_EXPORTER_LAUNCH_BROWSER_ON_STARTUP", "false")
+
     get_settings.cache_clear()
+
     with TestClient(app) as test_client:
         yield test_client
     get_settings.cache_clear()

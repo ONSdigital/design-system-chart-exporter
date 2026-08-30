@@ -72,6 +72,7 @@ class ChartRenderer:  # pylint: disable=too-many-instance-attributes
         if self._browser is not None:
             await self._browser.close()
             self._browser = None
+
         if self._playwright is not None:
             await self._playwright.stop()
             self._playwright = None
@@ -89,6 +90,7 @@ class ChartRenderer:  # pylint: disable=too-many-instance-attributes
             await asyncio.wait_for(self._sem.acquire(), timeout=self._queue_timeout)
         except TimeoutError:
             raise RendererBusy("no render slot available within the queue timeout") from None
+
         try:
             return await asyncio.wait_for(self._do_render(html), timeout=self._render_timeout)
         except TimeoutError:
@@ -104,18 +106,22 @@ class ChartRenderer:  # pylint: disable=too-many-instance-attributes
         """
         if self._browser is not None and self._browser.is_connected():
             return self._browser
+
         async with self._relaunch_lock:
             if self._browser is None or not self._browser.is_connected():
                 if self._browser is not None:
                     log.warning("browser disconnected; relaunching")
+
                 if self._playwright is None:
                     self._playwright = await async_playwright().start()
                 self._browser = await self._playwright.chromium.launch(headless=True)
+
             return self._browser
 
     async def _do_render(self, html: str) -> bytes:  # pragma: no cover - exercised by slow tests
         """One isolated browser context per request; all network blocked."""
         browser = await self._ensure_browser()
+
         try:
             context = await browser.new_context(
                 viewport={"width": self._viewport_width, "height": self._viewport_height},
@@ -123,17 +129,21 @@ class ChartRenderer:  # pylint: disable=too-many-instance-attributes
             )
         except PlaywrightError as exc:
             raise RenderError(f"failed to create browser context: {exc}") from exc
+
         try:
             # SSRF mitigation: abort every request the page makes. Safe because
             # the page HTML inlines all assets (nothing legitimate to fetch).
             await context.route("**/*", _abort_route)
             page = await context.new_page()
+
             await page.set_content(html)
             await self._wait_until_ready(page)
+
             chart_element = page.locator(CHART_LOCATOR).first
             if await chart_element.count() > 0:
                 return await chart_element.screenshot()
             return await page.screenshot()
+
         except PlaywrightError as exc:
             raise RenderError(f"browser render failed: {exc}") from exc
         finally:

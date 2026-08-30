@@ -63,7 +63,7 @@ CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "303
 FROM base AS web
 
 # Number of workers for gunicorn to spawn
-ENV WEB_CONCURRENCY=2
+ENV WEB_CONCURRENCY=1
 
 RUN uv sync --frozen --no-install-project --no-dev
 

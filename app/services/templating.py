@@ -34,6 +34,7 @@ def extend(value: list[Any], element: Any) -> None:
         # Likely called from a template macro, so we can't rely on
         # annotations and tooling for type safety.
         raise TypeError("First argument must be a list.")
+
     return value.append(element)
 
 
@@ -83,6 +84,7 @@ def _environment() -> Environment:
     assets_dir = TEMPLATES_DIR / "assets"
     env.globals["design_system_css"] = Markup((assets_dir / "main.css").read_text(encoding="utf-8"))  # noqa: S704
     env.globals["design_system_js"] = Markup((assets_dir / "main.js").read_text(encoding="utf-8"))  # noqa: S704
+
     return env
 
 

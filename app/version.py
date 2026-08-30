@@ -28,6 +28,7 @@ def iso8601(timestamp: datetime) -> str:
 def _read_build_time() -> str:
     """Convert the BUILD_TIME unix timestamp env var to an ISO 8601 string."""
     build_time = os.environ.get("BUILD_TIME")
+
     if not build_time:
         return ""
     try:

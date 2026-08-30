@@ -31,4 +31,5 @@ class MemoryStorageBackend:  # pylint: disable=too-few-public-methods
         if self.fail_with is not None:
             raise self.fail_with
         self.objects[key] = MemoryObject(data=data, content_type=content_type)
+
         return StoredObject(bucket=self.bucket, key=key, size_bytes=len(data), content_type=content_type)

@@ -3,7 +3,7 @@
 All fields are read from the environment with the ``CHART_EXPORTER_`` prefix,
 e.g. ``CHART_EXPORTER_S3_BUCKET``. The template-provided variables
 (``LOG_LEVEL``, ``LOG_AS_JSON``, ``WEB_PORT``, ``GIT_COMMIT``, ``BUILD_TIME``)
-are deliberately NOT managed here — they follow the ONS template conventions
+are deliberately NOT managed here, they follow the ONS template conventions
 and are read where they are used.
 """
 
@@ -32,9 +32,7 @@ class Settings(BaseSettings):
     s3_key_prefix: str = "charts/"
     s3_set_private_acl: bool = True
 
-    # Rendering. device_scale_factor default is provisional (open question:
-    # canonical viewport/scale for device=desktop is not yet agreed).
-    design_system_version: str = "latest"
+    # Rendering. device_scale_factor default is provisional
     viewport_width: int = Field(default=1200, gt=0)
     viewport_height: int = Field(default=640, gt=0)
     device_scale_factor: float = Field(default=1.0, gt=0)
@@ -46,7 +44,7 @@ class Settings(BaseSettings):
     max_concurrent_renders: int = Field(default=4, gt=0)
     render_timeout_seconds: float = Field(default=15.0, gt=0)
     queue_timeout_seconds: float = Field(default=5.0, gt=0)
-    max_body_bytes: int = Field(default=1_048_576, gt=0)
+    max_body_bytes: int = Field(default=1_048_576, gt=0)  # 1MB
 
     # True in production: launching the browser at startup fails fast on a
     # broken install and makes readiness meaningful from the first request.

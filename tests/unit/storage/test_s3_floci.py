@@ -54,6 +54,7 @@ def test_put_roundtrip(backend, verify_client):
 
     assert stored.bucket == BUCKET
     assert stored.key == key
+
     fetched = verify_client.get_object(Bucket=BUCKET, Key=key)
     assert fetched["Body"].read() == b"fake-png-bytes"
     assert fetched["ContentType"] == "image/png"

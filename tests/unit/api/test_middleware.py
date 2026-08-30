@@ -15,7 +15,9 @@ def client_64_byte_cap(monkeypatch):
     monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", "test-bucket")
     monkeypatch.setenv("CHART_EXPORTER_LAUNCH_BROWSER_ON_STARTUP", "false")
     monkeypatch.setenv("CHART_EXPORTER_MAX_BODY_BYTES", "64")
+
     get_settings.cache_clear()
+
     with TestClient(app) as test_client:
         yield test_client
     get_settings.cache_clear()
@@ -61,9 +63,7 @@ def test_requests_without_body_are_unaffected(client_64_byte_cap):
     assert response.json()["status"] == "CRITICAL"
 
 
-# --- Correlation ID middleware ---------------------------------------------
-
-
+# Correlation ID middleware
 def test_generates_request_id_when_absent(client):
     response = client.get("/health")
 

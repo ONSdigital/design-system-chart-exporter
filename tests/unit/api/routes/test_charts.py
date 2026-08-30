@@ -26,7 +26,9 @@ def tolerant_client(monkeypatch):
     """Like `client`, but returns 500 responses instead of re-raising server errors."""
     monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", "test-bucket")
     monkeypatch.setenv("CHART_EXPORTER_LAUNCH_BROWSER_ON_STARTUP", "false")
+
     get_settings.cache_clear()
+
     with TestClient(app, raise_server_exceptions=False) as test_client:
         yield test_client
     get_settings.cache_clear()
@@ -46,10 +48,10 @@ def test_create_chart_success(client, use_exporter):
             )
         )
     )
-
     response = client.post("/charts", json=VALID_PAYLOAD)
 
     assert response.status_code == HTTPStatus.CREATED
+
     assert response.json() == {
         "id": "6f9619ff-8b86-d011-b42d-00cf4fc964ff",
         "created_at": "2026-07-02T12:00:00Z",
@@ -88,8 +90,10 @@ def test_validation_errors_return_400_in_spec_format(client, payload, expected_c
     response = client.post("/charts", json=payload)
 
     assert response.status_code == HTTPStatus.BAD_REQUEST
+
     body = response.json()
     assert [error["code"] for error in body["errors"]] == expected_codes
+
     for error in body["errors"]:
         assert set(error) == {"code", "description"}
         assert error["description"]
@@ -145,7 +149,9 @@ def test_domain_errors_map_to_500_without_leaking_detail(client, use_exporter, e
     response = client.post("/charts", json=VALID_PAYLOAD)
 
     assert response.status_code == expected_status
+
     body = response.json()
+
     assert body["errors"][0]["code"] == expected_code
     assert str(error) not in response.text
 
@@ -158,6 +164,7 @@ def test_renderer_busy_returns_503_with_retry_after(client, use_exporter):
 
     assert response.status_code == HTTPStatus.SERVICE_UNAVAILABLE
     assert response.json()["errors"][0]["code"] == "renderer_busy"
+
     # Default queue_timeout_seconds is 5.0
     assert response.headers["retry-after"] == "5"
 
@@ -184,13 +191,16 @@ def test_default_provider_runs_full_stack_with_swapped_state(client):
     response = client.post("/charts", json=VALID_PAYLOAD)
 
     assert response.status_code == HTTPStatus.CREATED
+
     body = response.json()
     chart_id = UUID(body["id"])  # server-generated, valid UUID
+
     assert body["key"] == f"charts/{chart_id}.png"
     assert body["bucket"] == "test-bucket"
     assert body["content_type"] == "image/png"
     assert (body["width"], body["height"]) == (2400, 1280)
     assert body["size_bytes"] == len(storage.objects[body["key"]].data)
+
     # The response's Retry-After-style contract details are covered elsewhere;
     # here the stored object itself is the proof
     assert storage.objects[body["key"]].content_type == "image/png"

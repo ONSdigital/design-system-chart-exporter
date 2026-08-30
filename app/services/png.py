@@ -27,6 +27,8 @@ def read_png_dimensions(data: bytes) -> tuple[int, int]:
     if data[12:16] != b"IHDR":
         raise RenderError("renderer output is not a valid PNG (missing IHDR chunk)")
     width, height = struct.unpack(">II", data[_IHDR_OFFSET : _IHDR_OFFSET + 8])
+
     if width == 0 or height == 0:
         raise RenderError("renderer output PNG has zero width or height")
+
     return width, height

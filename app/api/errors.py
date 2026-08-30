@@ -32,6 +32,7 @@ class RequestError(Exception):
 
     def __init__(self, status_code: int, code: str, description: str) -> None:
         super().__init__(description)
+
         self.status_code = status_code
         self.code = code
         self.description = description
@@ -40,6 +41,7 @@ class RequestError(Exception):
 def error_response(status_code: int, items: list[ErrorItem], headers: Mapping[str, str] | None = None) -> JSONResponse:
     """Build a JSON response holding the spec's error document."""
     document = ErrorDocument(errors=items)
+
     return JSONResponse(status_code=status_code, content=document.model_dump(), headers=headers)
 
 
@@ -65,6 +67,7 @@ async def _validation_error(_: Request, exc: Exception) -> JSONResponse:
     """
     validation_error = cast(RequestValidationError, exc)
     items: list[ErrorItem] = []
+
     for error in validation_error.errors():
         field = next((part for part in error["loc"] if part in _FIELD_ERRORS), None)
         item = _FIELD_ERRORS[field] if field is not None else _BODY_ERROR
@@ -73,6 +76,7 @@ async def _validation_error(_: Request, exc: Exception) -> JSONResponse:
     # Log only our mapped codes: pydantic's error entries carry the offending
     # "input", which may contain chart_config (never logged).
     log.info("request validation failed", error_codes=[item.code for item in items])
+
     return error_response(400, items)
 
 
@@ -80,24 +84,28 @@ async def _request_error(_: Request, exc: Exception) -> JSONResponse:
     """Render a RequestError (e.g. 415, 413) as the spec's error document."""
     error = cast(RequestError, exc)
     log.info("request rejected", status_code=error.status_code, error_code=error.code)
+
     return error_response(error.status_code, [ErrorItem(code=error.code, description=error.description)])
 
 
 async def _render_error(_: Request, exc: Exception) -> JSONResponse:
     """A render failure is a server-side 500; detail goes to logs only."""
     log.error("chart render failed", error_code="render_failed", exc_info=exc)
+
     return error_response(500, [ErrorItem(code="render_failed", description="The chart could not be rendered.")])
 
 
 async def _render_timeout(_: Request, exc: Exception) -> JSONResponse:
     """A render that exceeded its timeout is a server-side 500."""
     log.error("chart render timed out", error_code="render_timeout", exc_info=exc)
+
     return error_response(500, [ErrorItem(code="render_timeout", description="Chart rendering timed out.")])
 
 
 async def _storage_error(_: Request, exc: Exception) -> JSONResponse:
     """A storage upload failure is a server-side 500; detail goes to logs only."""
     log.error("chart upload failed", error_code="storage_failed", exc_info=exc)
+
     return error_response(
         500, [ErrorItem(code="storage_failed", description="The rendered chart could not be stored.")]
     )
@@ -107,6 +115,7 @@ async def _renderer_busy(_: Request, exc: Exception) -> JSONResponse:  # pylint:
     """Queue saturation returns 503 with Retry-After (flagged spec extension)."""
     log.warning("render queue saturated", error_code="renderer_busy")
     retry_after = max(1, round(get_settings().queue_timeout_seconds))
+
     return error_response(
         503,
         [ErrorItem(code="renderer_busy", description="The service is busy rendering other charts; retry shortly.")],
@@ -117,8 +126,10 @@ async def _renderer_busy(_: Request, exc: Exception) -> JSONResponse:  # pylint:
 async def _http_exception(_: Request, exc: Exception) -> JSONResponse:
     """Wrap framework HTTPExceptions (404, 405, ...) in the spec's error document."""
     http_error = cast(StarletteHTTPException, exc)
+
     codes = {404: "not_found", 405: "method_not_allowed", 413: "request_body_too_large"}
     code = codes.get(http_error.status_code, "http_error")
+
     return error_response(
         http_error.status_code,
         [ErrorItem(code=code, description=str(http_error.detail))],
@@ -129,6 +140,7 @@ async def _http_exception(_: Request, exc: Exception) -> JSONResponse:
 async def _unhandled_exception(_: Request, exc: Exception) -> JSONResponse:
     """Last resort: any unhandled exception becomes a sanitised 500."""
     log.error("unhandled exception", error_code="internal_error", exc_info=exc)
+
     return error_response(500, [ErrorItem(code="internal_error", description="An internal error occurred.")])
 
 

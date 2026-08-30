@@ -29,6 +29,7 @@ def _browser_check(request: Request, now: datetime) -> Check:
     """Readiness of the shared browser: reflects browser.is_connected()."""
     ready = request.app.state.renderer.is_ready
     timestamp = version.iso8601(now)
+
     return Check(
         name="browser",
         status="OK" if ready else "CRITICAL",
@@ -46,13 +47,14 @@ def health(request: Request, response: Response) -> HealthResponse:
     A dead browser makes the service CRITICAL (it cannot render), reported
     with HTTP 500 so orchestrators stop routing traffic to this instance.
     """
-    log.info("health check requested")
     now = datetime.now(UTC)
     start_time: datetime = request.app.state.start_time
     checks = [_browser_check(request, now)]
     healthy = all(check.status == "OK" for check in checks)
+
     if not healthy:
         response.status_code = 500
+
     return HealthResponse(
         status="OK" if healthy else "CRITICAL",
         version=_VERSION_INFO,

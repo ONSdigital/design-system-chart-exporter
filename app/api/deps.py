@@ -30,6 +30,7 @@ async def require_json_content_type(request: Request) -> None:
     """
     content_type = request.headers.get("content-type", "")
     media_type = content_type.split(";", 1)[0].strip().lower()
+
     if media_type != "application/json":
         raise RequestError(415, "unsupported_media_type", "Content-Type must be application/json.")
 
@@ -44,4 +45,5 @@ def get_chart_exporter(request: Request) -> ChartExporter:
     dependency or swap app.state.renderer / app.state.storage.
     """
     state = request.app.state
+
     return ChartExportService(renderer=state.renderer, storage=state.storage, key_prefix=state.settings.s3_key_prefix)

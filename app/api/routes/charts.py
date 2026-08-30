@@ -27,8 +27,7 @@ async def create_chart(
 ) -> ChartObjectResponse:
     """Render the chart config to a PNG, store it privately, and return its metadata."""
     chart = await exporter.export(chart_config=payload.chart_config, language=payload.language)
-    # Never log chart_config: charts may contain sensitive/pre-release data
-    log.info("chart exported", chart_id=str(chart.id), key=chart.key, size_bytes=chart.size_bytes)
+
     return ChartObjectResponse(
         id=chart.id,
         created_at=chart.created_at,

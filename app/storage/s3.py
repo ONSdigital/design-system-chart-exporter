@@ -49,6 +49,7 @@ class S3StorageBackend:  # pylint: disable=too-few-public-methods
         """
         self._bucket = bucket
         self._set_private_acl = set_private_acl
+
         if client is None:
             config = Config(s3={"addressing_style": "path"}) if endpoint_url else None
             client = boto3.client("s3", region_name=region, endpoint_url=endpoint_url, config=config)
@@ -64,8 +65,10 @@ class S3StorageBackend:  # pylint: disable=too-few-public-methods
         params: dict[str, Any] = {"Bucket": self._bucket, "Key": key, "Body": data, "ContentType": content_type}
         if self._set_private_acl:
             params["ACL"] = "private"
+
         try:
             self._client.put_object(**params)
         except (BotoCoreError, ClientError) as exc:
             raise StorageError(f"S3 upload failed for key '{key}': {exc}") from exc
+
         return StoredObject(bucket=self._bucket, key=key, size_bytes=len(data), content_type=content_type)

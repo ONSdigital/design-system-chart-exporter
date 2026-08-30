@@ -33,6 +33,7 @@ def main() -> int:
     css_in, fonts_dir, css_out = (Path(arg) for arg in sys.argv[1:4])
     css_out.write_text(inline_fonts(css_in.read_text(encoding="utf-8"), fonts_dir), encoding="utf-8")
     remaining = _FONT_URL.findall(css_out.read_text(encoding="utf-8"))
+
     if remaining:
         print(f"ERROR: font references not inlined: {remaining}", file=sys.stderr)
         return 1

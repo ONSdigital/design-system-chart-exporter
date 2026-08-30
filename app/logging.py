@@ -27,6 +27,7 @@ _SEVERITY_LEVELS: Final[dict[str, int]] = {
 }
 
 env = os.environ.copy()
+
 LOG_AS_JSON: Final[bool] = env.get("LOG_AS_JSON", "true").lower().strip() == "true"
 LOG_LEVEL: Final[int] = logging.getLevelNamesMapping().get(env.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
 
@@ -38,6 +39,7 @@ def _add_severity(
 ) -> structlog.types.EventDict:
     """Add a severity field to the event dict based on the method name."""
     event_dict["severity"] = _SEVERITY_LEVELS.get(method_name, 3)
+
     return event_dict
 
 
@@ -48,6 +50,7 @@ def _add_spec_version(
 ) -> structlog.types.EventDict:
     """Add the logging standard's spec_version field, defaulting to v1."""
     event_dict.setdefault("spec_version", "v1")
+
     return event_dict
 
 
@@ -58,6 +61,7 @@ def _add_exception_info(
 ) -> structlog.types.EventDict:
     """Replace exc_info with a DP standard compliant errors field."""
     exc_info = event_dict.pop("exc_info", None)
+
     if exc_info is True:
         exc_info = sys.exc_info()
     elif isinstance(exc_info, BaseException):
@@ -71,6 +75,7 @@ def _add_exception_info(
 
     errors = []
     exc: BaseException | None = value
+
     while exc is not None:
         errors.append(
             {
@@ -84,6 +89,7 @@ def _add_exception_info(
         exc = exc.__cause__ or (None if exc.__suppress_context__ else exc.__context__)
 
     event_dict["errors"] = errors
+
     return event_dict
 
 
@@ -94,8 +100,10 @@ def _add_trace_id(
 ) -> structlog.types.EventDict:
     """Add the DP standard's trace_id field for events raised during a request."""
     trace_id = trace_id_var.get()
+
     if trace_id is not None:
         event_dict.setdefault("trace_id", trace_id)
+
     return event_dict
 
 
@@ -103,6 +111,7 @@ def _get_renderer() -> structlog.types.Processor:
     """Return the appropriate renderer based on the LOG_AS_JSON environment variable."""
     if LOG_AS_JSON:
         return structlog.processors.JSONRenderer()
+
     return structlog.dev.ConsoleRenderer()
 
 
@@ -176,4 +185,5 @@ def get_logger(namespace: str | None = None) -> structlog.types.FilteringBoundLo
     logger: structlog.types.FilteringBoundLogger = structlog.get_logger()
     if namespace is not None:
         logger = logger.bind(namespace=namespace)
+
     return logger

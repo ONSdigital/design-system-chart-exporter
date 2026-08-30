@@ -38,13 +38,16 @@ def e2e_client(monkeypatch):
     """The real app: lifespan launches a real browser, storage points at Floci."""
     if not _floci_reachable():
         pytest.skip("Floci is not running on localhost:4566 — start it with `make up`")
+
     monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", BUCKET)
     monkeypatch.setenv("CHART_EXPORTER_S3_ENDPOINT_URL", FLOCI_ENDPOINT)
     monkeypatch.setenv("CHART_EXPORTER_LAUNCH_BROWSER_ON_STARTUP", "true")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
+
     get_settings.cache_clear()
+
     with TestClient(app) as client:
         yield client
     get_settings.cache_clear()
@@ -67,6 +70,7 @@ def test_render_and_store_end_to_end(e2e_client):
     s3 = boto3.client("s3", region_name="us-east-1", endpoint_url=FLOCI_ENDPOINT)
     fetched = s3.get_object(Bucket=BUCKET, Key=body["key"])
     png = fetched["Body"].read()
+
     assert fetched["ContentType"] == "image/png"
     assert len(png) == body["size_bytes"]
     assert read_png_dimensions(png) == (body["width"], body["height"])

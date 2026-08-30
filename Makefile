@@ -111,7 +111,7 @@ compose-pull:  ## Pull Docker containers
 	docker compose pull
 
 .PHONY: compose-up
-compose-up:  ## Start Docker containers
+compose-up: | templates/components  ## Start Docker containers (vendors the DS templates first if missing)
 	docker compose up --detach
 
 .PHONY: compose-down

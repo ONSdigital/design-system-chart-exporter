@@ -81,6 +81,7 @@ class ChartExportService:  # pylint: disable=too-few-public-methods
             render_ms=render_ms,
             upload_ms=upload_ms,
         )
+
         return RenderedChart(
             id=chart_id, key=key, size_bytes=len(png), width=width, height=height, created_at=created_at
         )

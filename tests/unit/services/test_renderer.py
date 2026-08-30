@@ -29,9 +29,7 @@ def make_renderer(**overrides):
     return ChartRenderer(**params)
 
 
-# --- Fast tests: control flow with a stubbed _do_render -------------------
-
-
+# Fast tests: control flow with a stubbed _do_render
 async def test_render_timeout_raises_and_releases_slot():
     renderer = make_renderer(render_timeout_seconds=0.05)
 
@@ -50,6 +48,7 @@ async def test_render_timeout_raises_and_releases_slot():
 async def test_queue_timeout_raises_renderer_busy():
     renderer = make_renderer(queue_timeout_seconds=0.05)
     await renderer._sem.acquire()  # occupy the only slot
+
     try:
         with pytest.raises(RendererBusy):
             await renderer.render("<html></html>")
@@ -72,6 +71,7 @@ async def test_semaphore_bounds_concurrency():
 
     first = asyncio.ensure_future(renderer.render("first"))
     await asyncio.sleep(0.05)
+
     second = asyncio.ensure_future(renderer.render("second"))
     await asyncio.sleep(0.05)
 
@@ -81,6 +81,7 @@ async def test_semaphore_bounds_concurrency():
     release_first.set()
     assert await first == b"png-bytes"
     assert await second == b"png-bytes"
+
     assert running == ["first", "second"]
 
 
@@ -88,9 +89,7 @@ async def test_is_ready_false_before_start():
     assert make_renderer().is_ready is False
 
 
-# --- Slow tests: real Chromium --------------------------------------------
-
-
+# Slow tests: real Chromium
 @pytest.fixture()
 async def renderer():
     instance = make_renderer()
@@ -110,6 +109,7 @@ async def test_renders_page_to_png_at_viewport_size(renderer):
 async def test_device_scale_factor_doubles_pixel_dimensions():
     renderer = make_renderer(device_scale_factor=2.0)
     await renderer.start()
+
     try:
         png = await renderer.render("<html><body>hi</body></html>")
         # PNG dimensions are physical pixels, not CSS pixels

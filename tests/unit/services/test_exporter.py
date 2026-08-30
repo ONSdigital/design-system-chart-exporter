@@ -32,10 +32,12 @@ async def test_export_happy_path():
     # UUID4 generated first; key derived deterministically from it
     assert chart.key == f"charts/{chart.id}.png"
     assert re.fullmatch(KEY_PATTERN, chart.key)
+
     # Dimensions come from the PNG bytes, size from their length
     assert (chart.width, chart.height) == (1200, 640)
     assert chart.size_bytes == len(renderer.png)
     assert chart.created_at.tzinfo == UTC
+
     # The PNG was uploaded under the derived key with the right content type
     stored = storage.objects[chart.key]
     assert stored.data == renderer.png

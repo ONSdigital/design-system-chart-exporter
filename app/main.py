@@ -33,8 +33,10 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
     Later phases extend this with the Playwright browser launch/close.
     """
     settings = get_settings()
+
     application.state.settings = settings
     application.state.start_time = datetime.now(UTC)
+
     application.state.renderer = ChartRenderer(
         viewport_width=settings.viewport_width,
         viewport_height=settings.viewport_height,
@@ -43,24 +45,30 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
         render_timeout_seconds=settings.render_timeout_seconds,
         queue_timeout_seconds=settings.queue_timeout_seconds,
     )
+
     application.state.storage = S3StorageBackend(
         bucket=settings.s3_bucket,
         region=settings.s3_region,
         endpoint_url=settings.s3_endpoint_url,
         set_private_acl=settings.s3_set_private_acl,
     )
+
     if settings.launch_browser_on_startup:  # pragma: no cover - exercised by slow tests
         await application.state.renderer.start()
     log.info("service started", version=VERSION, s3_bucket=settings.s3_bucket)
     yield
+
     await application.state.renderer.stop()
     log.info("service stopping")
 
 
 app = FastAPI(lifespan=lifespan)
+
 app.include_router(health_router)
 app.include_router(charts_router)
+
 app.add_middleware(BodySizeLimitMiddleware)
 # Added last = outermost: even 413s and unhandled errors carry X-Request-Id
 app.add_middleware(CorrelationIdMiddleware)
+
 register_exception_handlers(app)

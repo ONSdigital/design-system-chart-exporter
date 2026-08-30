@@ -31,7 +31,6 @@ def test_defaults(monkeypatch):
     assert settings.s3_region is None
     assert settings.s3_key_prefix == "charts/"
     assert settings.s3_set_private_acl is True
-    assert settings.design_system_version == "latest"
     assert settings.viewport_width == 1200
     assert settings.viewport_height == 640
     assert settings.device_scale_factor == 1.0
@@ -68,8 +67,8 @@ def test_non_positive_limits_rejected(monkeypatch):
 def test_get_settings_is_cached(monkeypatch):
     """get_settings reads the environment once per process."""
     monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", "test-bucket")
-
     first = get_settings()
+
     monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", "changed-bucket")
     second = get_settings()
 

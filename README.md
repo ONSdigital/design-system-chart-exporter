@@ -18,6 +18,14 @@ lifecycle. This service never manages access state beyond uploading privately,
 and it is deliberately **non-idempotent**: every POST renders and stores a new
 object (caching/deduplication is the caller's job).
 
+> **Orphaned objects on client disconnect.** The render and upload run
+> synchronously and are not cancelled if the caller disconnects mid-request.
+> A client that times out and retries can therefore leave a stored object it
+> never receives metadata for, plus a second object for the retry. This is an
+> accepted consequence of the non-idempotent design — the caller owns object
+> lifecycle, so Wagtail must treat retries deliberately (and any orphan cleanup
+> is handled by the caller's lifecycle management, not this service).
+
 ---
 
 ## Table of Contents
@@ -385,15 +393,23 @@ This maps to MegaLinter's `ENABLE_LINTERS` environment variable. See the
 The service renders caller-supplied data in a real browser inside a private
 network, so the following are load-bearing, not optional:
 
-- **SSRF mitigation**: all Design System assets (CSS, fonts, the Highcharts
-  JS bundle) are vendored into the image at build time and inlined into the
-  rendered page; the browser context aborts **every** network request
-  (`context.route("**/*", abort)`). A malicious `chart_config` URL cannot
-  make Chromium fetch internal endpoints (e.g. instance metadata).
+- **SSRF mitigation (defence in depth)**: all Design System assets (CSS,
+  fonts, the Highcharts JS bundle) are vendored into the image at build time
+  and inlined into the rendered page. On top of that, the render context
+  aborts **every** HTTP request (`context.route("**/*", abort)`) and every
+  WebSocket (`context.route_web_socket`), the page carries a
+  `connect-src 'none'` Content-Security-Policy (blocking fetch/XHR/WebSocket/
+  EventSource/beacon at the browser layer), and Chromium is launched with
+  non-proxied WebRTC UDP disabled. So even caller-supplied markup that reaches
+  a raw-HTML (`| safe`) sink in the opaque `chart_config` cannot open any
+  channel out of the render context — it cannot make Chromium reach internal
+  endpoints (e.g. instance metadata).
 - **Script-context escaping**: chart config is serialised into `<script>`
   blocks with `<`, `>`, `&`, `'`, U+2028/U+2029 escaped as unicode sequences,
   so a `</script>` payload cannot break out; HTML contexts are autoescaped
-  (including the DS `.njk` macros).
+  (including the DS `.njk` macros), and strings under known raw-HTML keys
+  (`download`) are HTML-escaped before templating so they render as inert
+  text rather than executing.
 - **Body size cap** (413) checks Content-Length *and* counts streamed bytes,
   because Content-Length can lie.
 - **chart_config is never logged** — charts may contain pre-release data.
@@ -407,11 +423,16 @@ network, so the following are load-bearing, not optional:
 
 ## Deployment notes
 
-- One browser per worker process. The web image currently runs gunicorn with
-  `WEB_CONCURRENCY=1`, i.e. **one Chromium instances per container** — size
-  container memory accordingly, and keep scaling horizontal.
+- One browser per worker process. The web image runs gunicorn with
+  `WEB_CONCURRENCY=1`, i.e. **one Chromium instance per container** — size
+  container memory accordingly (each render context is ~50–100 MB, bounded by
+  `max_concurrent_renders`), and keep scaling horizontal.
 - Timeout nesting must hold: `queue_timeout + render_timeout` (default 20s)
   < gunicorn timeout (25s) < caller's client timeout < LB idle timeout.
+- Base image: `python:3.14-slim` with Chromium's system libraries added via
+  `playwright install-deps` (rather than `mcr.microsoft.com/playwright/python`,
+  which does not ship Python 3.14). The two are equivalent for the system deps
+  Chromium needs.
 - At deploy time: enforce IMDSv2, and scope the pod IAM role to
   `s3:PutObject` on the charts prefix only (defence in depth alongside the
   render-context network block).

@@ -113,3 +113,15 @@ def test_every_limit_accepts_one(monkeypatch, field):
     monkeypatch.setenv(f"CHART_EXPORTER_{field.upper()}", "1")
 
     assert getattr(Settings(), field) == 1
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [("charts", "charts/"), ("charts/", "charts/"), ("a/b", "a/b/"), ("", "")],
+)
+def test_key_prefix_gets_a_trailing_slash(monkeypatch, given, expected):
+    """A prefix without a trailing slash would corrupt the key; it is normalised."""
+    monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", "test-bucket")
+    monkeypatch.setenv("CHART_EXPORTER_S3_KEY_PREFIX", given)
+
+    assert Settings().s3_key_prefix == expected

@@ -3,12 +3,15 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 
 from app.api.errors import register_exception_handlers
 from app.api.middleware import BodySizeLimitMiddleware, CorrelationIdMiddleware
 from app.api.routes.charts import router as charts_router
+from app.api.routes.health import CheckHistory
 from app.api.routes.health import router as health_router
 from app.config import get_settings
 from app.logging import configure_logging, get_logger
@@ -36,6 +39,7 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
 
     application.state.settings = settings
     application.state.start_time = datetime.now(UTC)
+    application.state.check_history = CheckHistory()
 
     application.state.renderer = ChartRenderer(
         viewport_width=settings.viewport_width,
@@ -62,7 +66,12 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
     log.info("service stopping")
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    title="ONS Chart Exporter",
+    version=VERSION,
+    summary="Render an ONS Design System chart configuration to a PNG and store it privately.",
+)
 
 app.include_router(health_router)
 app.include_router(charts_router)
@@ -72,3 +81,28 @@ app.add_middleware(BodySizeLimitMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 
 register_exception_handlers(app)
+
+
+def custom_openapi() -> dict[str, Any]:
+    """Build the OpenAPI schema, removing FastAPI's auto-added 422 responses.
+
+    Validation failures are remapped to 400 in the spec's error document (see
+    api/errors.py), so a 422 never actually occurs. Stripping it keeps the
+    published schema — and clients generated from it — truthful.
+    """
+    if app.openapi_schema is not None:
+        return app.openapi_schema
+    schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        summary=app.summary,
+        routes=app.routes,
+    )
+    for path in schema.get("paths", {}).values():
+        for operation in path.values():
+            operation.get("responses", {}).pop("422", None)
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = custom_openapi  # type: ignore[method-assign]

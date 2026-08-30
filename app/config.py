@@ -9,7 +9,7 @@ and are read where they are used.
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -51,6 +51,19 @@ class Settings(BaseSettings):
     # Tests set this false so the fast API suite never needs a browser
     # (dependency overrides cannot reach the lifespan).
     launch_browser_on_startup: bool = True
+
+    @field_validator("s3_key_prefix")
+    @classmethod
+    def _ensure_trailing_slash(cls, value: str) -> str:
+        """Guarantee a non-empty prefix ends with '/' so keys are {prefix}{id}.png.
+
+        Without this, CHART_EXPORTER_S3_KEY_PREFIX=charts would yield
+        'charts6f96...png'. An empty prefix is left as-is (objects at the
+        bucket root).
+        """
+        if value and not value.endswith("/"):
+            return f"{value}/"
+        return value
 
 
 @lru_cache

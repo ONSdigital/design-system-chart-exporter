@@ -40,7 +40,9 @@ def test_create_chart_success(client, use_exporter):
         StubExporter(
             result=RenderedChart(
                 id=CHART_ID,
+                bucket="test-bucket",
                 key=f"charts/{CHART_ID}.png",
+                content_type="image/png",
                 size_bytes=48213,
                 width=1200,
                 height=640,
@@ -285,3 +287,11 @@ def test_error_codes_are_unique_per_response(client):
     codes = [error["code"] for error in response.json()["errors"]]
     assert len(codes) == len(set(codes))
     assert codes == ["invalid_language", "invalid_device", "invalid_chart_config"]
+
+
+def test_unknown_envelope_key_is_rejected(client):
+    """extra='forbid' on the envelope: a typo'd key fails loudly rather than being ignored."""
+    response = client.post("/charts", json={**VALID_PAYLOAD, "chartConfig": {"x": 1}})
+
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert response.json()["errors"][0]["code"] == "invalid_request_body"

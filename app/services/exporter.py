@@ -68,20 +68,29 @@ class ChartExportService:  # pylint: disable=too-few-public-methods
         width, height = read_png_dimensions(png)
 
         upload_started = time.perf_counter()
-        await asyncio.to_thread(self._storage.put, key=key, data=png, content_type=_PNG_CONTENT_TYPE)
+        stored = await asyncio.to_thread(self._storage.put, key=key, data=png, content_type=_PNG_CONTENT_TYPE)
         upload_ms = round((time.perf_counter() - upload_started) * 1000)
 
         log.info(
             "chart exported",
             chart_id=str(chart_id),
             key=key,
-            size_bytes=len(png),
+            size_bytes=stored.size_bytes,
             width=width,
             height=height,
             render_ms=render_ms,
             upload_ms=upload_ms,
         )
 
+        # bucket/content_type come from what storage actually persisted, so the
+        # response reports the stored fact rather than re-deriving it from config.
         return RenderedChart(
-            id=chart_id, key=key, size_bytes=len(png), width=width, height=height, created_at=created_at
+            id=chart_id,
+            bucket=stored.bucket,
+            key=stored.key,
+            content_type=stored.content_type,
+            size_bytes=stored.size_bytes,
+            width=width,
+            height=height,
+            created_at=created_at,
         )

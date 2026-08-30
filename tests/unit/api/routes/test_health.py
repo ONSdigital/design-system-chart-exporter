@@ -2,7 +2,11 @@ import re
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
+import pytest
+
+from app.api.routes.health import _HTTP_STATUS, aggregate_status
 from app.main import app
+from app.schemas.health import Check
 from app.version import BUILD_TIME, GIT_COMMIT, VERSION
 from tests.helpers import StubRenderer
 
@@ -73,3 +77,54 @@ def test_health_needs_no_body_and_ignores_content_type(client):
     response = client.get("/health", headers={"content-type": "text/plain"})
 
     assert response.status_code == HTTPStatus.OK
+
+
+def test_last_success_is_retained_across_a_later_failure(client):
+    """During an outage, last_success shows when it last worked, not null."""
+    app.state.renderer = StubRenderer(ready=True)
+    first = client.get("/health").json()["checks"][0]
+    assert first["last_success"] is not None
+
+    app.state.renderer = StubRenderer(ready=False)
+    second = client.get("/health").json()["checks"][0]
+
+    assert second["status"] == "CRITICAL"
+    assert second["last_success"] == first["last_success"]  # retained
+    assert second["last_failure"] is not None
+
+
+def test_last_failure_is_retained_after_recovery(client):
+    """After recovery, last_failure still shows when it last broke."""
+    app.state.renderer = StubRenderer(ready=False)
+    down = client.get("/health").json()["checks"][0]
+
+    app.state.renderer = StubRenderer(ready=True)
+    up = client.get("/health").json()["checks"][0]
+
+    assert up["status"] == "OK"
+    assert up["last_failure"] == down["last_failure"]  # retained
+
+
+def test_status_to_http_mapping():
+    """DP spec status -> HTTP: OK 200, WARNING 429, CRITICAL 500."""
+    assert _HTTP_STATUS == {"OK": 200, "WARNING": 429, "CRITICAL": 500}
+
+
+@pytest.mark.parametrize(
+    ("statuses", "expected"),
+    [
+        ([], "OK"),
+        (["OK"], "OK"),
+        (["OK", "WARNING"], "WARNING"),
+        (["OK", "WARNING", "CRITICAL"], "CRITICAL"),
+        (["WARNING", "CRITICAL"], "CRITICAL"),
+    ],
+)
+def test_aggregate_status_is_the_most_severe(statuses, expected):
+    """Overall status is the most severe check; a WARNING degrades, a CRITICAL fails."""
+    checks = [
+        Check(name=str(i), status=s, message="", last_checked=None, last_success=None, last_failure=None)
+        for i, s in enumerate(statuses)
+    ]
+
+    assert aggregate_status(checks) == expected

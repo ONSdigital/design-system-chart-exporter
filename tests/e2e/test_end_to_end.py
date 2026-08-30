@@ -6,7 +6,6 @@ stack (`make up`) and the Playwright Chromium install; marked e2e.
 """
 
 import json
-import socket
 from http import HTTPStatus
 from pathlib import Path
 
@@ -17,6 +16,7 @@ from fastapi.testclient import TestClient
 from app.config import get_settings
 from app.main import app
 from app.services.png import read_png_dimensions
+from tests.helpers import require_floci
 
 FLOCI_ENDPOINT = "http://localhost:4566"
 BUCKET = "ons-charts"
@@ -25,19 +25,10 @@ PAYLOAD = json.loads((Path(__file__).parents[2] / "examples" / "chart-payload.js
 pytestmark = pytest.mark.e2e
 
 
-def _floci_reachable():
-    try:
-        with socket.create_connection(("localhost", 4566), timeout=1):
-            return True
-    except OSError:
-        return False
-
-
 @pytest.fixture()
 def e2e_client(monkeypatch):
     """The real app: lifespan launches a real browser, storage points at Floci."""
-    if not _floci_reachable():
-        pytest.skip("Floci is not running on localhost:4566 — start it with `make up`")
+    require_floci()
 
     monkeypatch.setenv("CHART_EXPORTER_S3_BUCKET", BUCKET)
     monkeypatch.setenv("CHART_EXPORTER_S3_ENDPOINT_URL", FLOCI_ENDPOINT)

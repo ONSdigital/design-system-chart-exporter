@@ -2,7 +2,7 @@
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class ChartRenderRequest(BaseModel):
@@ -13,6 +13,11 @@ class ChartRenderRequest(BaseModel):
     non-empty object — never its internal fields, so the contract can evolve
     without changes here.
     """
+
+    # Forbid unknown keys in the ENVELOPE only: a typo like "chartConfig" then
+    # fails loudly instead of silently omitting chart_config. chart_config
+    # itself stays an opaque dict[str, Any], so the DS contract is unaffected.
+    model_config = ConfigDict(extra="forbid")
 
     language: Literal["en"]
     device: Literal["desktop"]

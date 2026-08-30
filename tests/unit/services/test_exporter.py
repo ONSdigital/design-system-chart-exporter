@@ -100,3 +100,12 @@ async def test_export_logs_measured_durations_without_the_config(json_logs):
     assert 0 <= event["upload_ms"] < 500
     assert "chart_config" not in event
     assert CHART_CONFIG["title"] not in str(event)
+
+
+async def test_export_reports_stored_bucket_and_content_type():
+    """Bucket and content_type come from what storage persisted, not from config."""
+    storage = MemoryStorageBackend(bucket="ons-charts")
+    chart = await make_service(StubRenderer(), storage).export(chart_config=CHART_CONFIG, language="en")
+
+    assert chart.bucket == "ons-charts"
+    assert chart.content_type == "image/png"

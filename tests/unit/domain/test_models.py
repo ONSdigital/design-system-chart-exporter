@@ -13,7 +13,14 @@ from app.storage.memory import MemoryObject
     [
         (
             RenderedChart(
-                id=uuid4(), key="charts/x.png", size_bytes=1, width=1, height=1, created_at=datetime.now(UTC)
+                id=uuid4(),
+                bucket="b",
+                key="charts/x.png",
+                content_type="image/png",
+                size_bytes=1,
+                width=1,
+                height=1,
+                created_at=datetime.now(UTC),
             ),
             "key",
         ),

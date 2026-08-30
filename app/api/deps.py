@@ -1,12 +1,15 @@
 """Dependencies for the API layer: content-type guard and service providers."""
 
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from fastapi import Request
 
 from app.api.errors import RequestError
+from app.config import get_settings
 from app.domain.models import RenderedChart
 from app.services.exporter import ChartExportService
+from app.services.renderer import ChartRenderer
+from app.storage.base import StorageBackend
 
 
 class ChartExporter(Protocol):  # pylint: disable=too-few-public-methods
@@ -35,6 +38,22 @@ async def require_json_content_type(request: Request) -> None:
         raise RequestError(415, "unsupported_media_type", "Content-Type must be application/json.")
 
 
+def get_renderer(request: Request) -> ChartRenderer:
+    """Return the process-wide renderer from app.state, typed.
+
+    ``app.state`` is an untyped attribute bag (Starlette ``State``), so reads
+    off it are ``Any`` and mypy cannot check how the renderer is used. These
+    accessors localise that one untyped boundary — created in the lifespan,
+    read here — into a single cast, so every downstream use is type-checked.
+    """
+    return cast(ChartRenderer, request.app.state.renderer)
+
+
+def get_storage(request: Request) -> StorageBackend:
+    """Return the process-wide storage backend from app.state, typed."""
+    return cast(StorageBackend, request.app.state.storage)
+
+
 def get_chart_exporter(request: Request) -> ChartExporter:
     """Provide the chart exporter, wired to the process-wide renderer/storage.
 
@@ -44,6 +63,8 @@ def get_chart_exporter(request: Request) -> ChartExporter:
     BEFORE the request body is validated. Tests either override this
     dependency or swap app.state.renderer / app.state.storage.
     """
-    state = request.app.state
-
-    return ChartExportService(renderer=state.renderer, storage=state.storage, key_prefix=state.settings.s3_key_prefix)
+    return ChartExportService(
+        renderer=get_renderer(request),
+        storage=get_storage(request),
+        key_prefix=get_settings().s3_key_prefix,
+    )

@@ -37,5 +37,20 @@ jobs:
       - name: Lint Python
         run: make lint
 
+      # Chromium's system libraries are needed for the slow (real-browser) and
+      # e2e test layers. The browser binary itself is installed by `make
+      # test-all` (playwright-browsers target).
+      - name: Install Playwright system dependencies
+        run: uv run playwright install-deps chromium
+
+      # Start the local S3 emulator so the e2e layer actually runs; without it
+      # the e2e tests fail under CI (they only skip locally).
+      - name: Start local infrastructure (Floci S3)
+        run: make up-deps
+
       - name: Test
         run: make test-all
+
+      - name: Stop local infrastructure
+        if: always()
+        run: docker compose down --volumes

@@ -21,7 +21,7 @@ Browser-touching internals are excluded from fast-suite coverage
 
 import asyncio
 
-from playwright.async_api import Browser, Page, Playwright, Route, async_playwright
+from playwright.async_api import Browser, Page, Playwright, Route, WebSocketRoute, async_playwright
 from playwright.async_api import Error as PlaywrightError
 
 from app.domain.exceptions import RendererBusy, RenderError, RenderTimeout
@@ -114,7 +114,13 @@ class ChartRenderer:  # pylint: disable=too-many-instance-attributes
 
                 if self._playwright is None:
                     self._playwright = await async_playwright().start()
-                self._browser = await self._playwright.chromium.launch(headless=True)
+                self._browser = await self._playwright.chromium.launch(
+                    headless=True,
+                    # Defence in depth against the render context reaching the
+                    # network via WebRTC (not covered by context.route or the
+                    # page CSP's connect-src): keep UDP off any non-proxied path.
+                    args=["--webrtc-ip-handling-policy=disable_non_proxied_udp"],
+                )
 
             return self._browser
 
@@ -126,6 +132,10 @@ class ChartRenderer:  # pylint: disable=too-many-instance-attributes
             context = await browser.new_context(
                 viewport={"width": self._viewport_width, "height": self._viewport_height},
                 device_scale_factor=self._device_scale_factor,
+                # Highcharts (and the DS macros) honour prefers-reduced-motion, so
+                # this disables entry animations and the screenshot captures the
+                # settled chart rather than a mid-animation frame.
+                reduced_motion="reduce",
             )
         except PlaywrightError as exc:
             raise RenderError(f"failed to create browser context: {exc}") from exc
@@ -134,6 +144,10 @@ class ChartRenderer:  # pylint: disable=too-many-instance-attributes
             # SSRF mitigation: abort every request the page makes. Safe because
             # the page HTML inlines all assets (nothing legitimate to fetch).
             await context.route("**/*", _abort_route)
+            # context.route does not intercept WebSocket handshakes; block them
+            # explicitly so caller-supplied markup cannot open one (the page CSP
+            # blocks it too — this is the belt to that braces).
+            await context.route_web_socket("**/*", _abort_web_socket)
             page = await context.new_page()
 
             await page.set_content(html)
@@ -162,3 +176,7 @@ class ChartRenderer:  # pylint: disable=too-many-instance-attributes
 
 async def _abort_route(route: Route) -> None:  # pragma: no cover - exercised by slow tests
     await route.abort()
+
+
+async def _abort_web_socket(ws: WebSocketRoute) -> None:  # pragma: no cover - exercised by slow tests
+    await ws.close()

@@ -6,11 +6,13 @@ from uuid import UUID
 
 
 @dataclass(frozen=True, slots=True)
-class RenderedChart:
+class RenderedChart:  # pylint: disable=too-many-instance-attributes
     """Object metadata of a chart that has been rendered and stored."""
 
     id: UUID
+    bucket: str
     key: str
+    content_type: str
     size_bytes: int
     width: int
     height: int

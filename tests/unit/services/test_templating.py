@@ -88,3 +88,32 @@ def test_extend_appends_in_place():
 def test_extend_rejects_non_list():
     with pytest.raises(TypeError, match="must be a list"):
         extend("not-a-list", 2)
+
+
+def test_download_list_html_is_neutralised():
+    """Injection defence: HTML under `download` (a DS `| safe` sink) renders as inert text."""
+    payload = "<script>window.x=1</script><img src=x onerror=alert(1)>"
+    config = {
+        **CHART_CONFIG,
+        "download": {"title": payload, "count": 3, "enabled": True, "itemsList": [{"text": payload, "url": "u"}]},
+    }
+
+    html = render_chart_html(chart_config=config, language="en")
+
+    assert "<script>window.x=1</script>" not in html
+    assert "<img src=x onerror=alert(1)>" not in html
+    assert "&lt;script&gt;window.x=1&lt;/script&gt;" in html
+
+
+def test_config_without_raw_html_keys_is_passed_through_unchanged():
+    """Configs with no `download` key must not be copied or altered."""
+    html = render_chart_html(chart_config=CHART_CONFIG, language="en")
+
+    assert "Monthly Sales Revenue" in html
+
+
+def test_content_security_policy_is_present():
+    """The page carries a CSP that blocks all outbound connections."""
+    html = render_chart_html(chart_config=CHART_CONFIG, language="en")
+
+    assert "connect-src 'none'" in html

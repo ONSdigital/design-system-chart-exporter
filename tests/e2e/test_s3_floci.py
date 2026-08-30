@@ -4,13 +4,13 @@ Marked e2e: excluded from `make test`. Skipped with a loud reason when the
 Floci container is not reachable — start it with `make up`.
 """
 
-import socket
 import uuid
 
 import boto3
 import pytest
 
 from app.storage.s3 import S3StorageBackend
+from tests.helpers import require_floci
 
 FLOCI_ENDPOINT = "http://localhost:4566"
 BUCKET = "ons-charts"
@@ -18,18 +18,9 @@ BUCKET = "ons-charts"
 pytestmark = pytest.mark.e2e
 
 
-def _floci_reachable():
-    try:
-        with socket.create_connection(("localhost", 4566), timeout=1):
-            return True
-    except OSError:
-        return False
-
-
 @pytest.fixture(autouse=True)
 def floci(monkeypatch):
-    if not _floci_reachable():
-        pytest.skip("Floci is not running on localhost:4566 — start it with `make up`")
+    require_floci()
     # Floci accepts any dummy credentials; never real ones here
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test")

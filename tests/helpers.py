@@ -6,6 +6,7 @@ importing it as a module is fragile; a plain helpers module is not.
 
 import asyncio
 import os
+import socket
 import struct
 import subprocess
 import sys
@@ -93,3 +94,22 @@ def run_python(code, env):
         cwd=REPO_ROOT,
     )
     return result.stdout.strip()
+
+
+def require_floci(host="localhost", port=4566):
+    """Skip an e2e test when Floci is unreachable — but fail hard under CI.
+
+    Locally, a developer who has not run `make up-deps` gets a clear skip.
+    In CI (`CI` env var set by GitHub Actions) a missing emulator is a real
+    failure, so the e2e layer can never silently pass by being skipped.
+    """
+    import pytest  # noqa: PLC0415 - test-only dependency, imported lazily
+
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            return
+    except OSError:
+        message = f"Floci is not reachable on {host}:{port} — start it with `make up-deps`"
+        if os.environ.get("CI"):
+            pytest.fail(message)
+        pytest.skip(message)

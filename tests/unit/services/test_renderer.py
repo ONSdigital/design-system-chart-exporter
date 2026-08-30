@@ -6,6 +6,7 @@ real Chromium via Playwright and cover the browser-touching internals.
 """
 
 import asyncio
+import socket
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -272,3 +273,49 @@ async def test_stop_closes_the_browser_and_is_idempotent():
     assert browser.is_connected() is False
     assert renderer.is_ready is False
     await renderer.stop()  # safe to call again (and on a never-started renderer)
+
+
+@pytest.fixture()
+def tcp_listener():
+    """A raw TCP listener on 127.0.0.1 that records every inbound connection.
+
+    A WebSocket handshake begins with a TCP connect; if the CSP/route block
+    works, no connection is ever made, so the count stays zero.
+    """
+    connections = []
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("127.0.0.1", 0))
+    server.listen()
+    port = server.getsockname()[1]
+    stop = threading.Event()
+
+    def accept_loop():
+        server.settimeout(0.25)
+        while not stop.is_set():
+            try:
+                conn, _ = server.accept()
+                connections.append(conn)
+            except OSError:
+                continue
+
+    thread = threading.Thread(target=accept_loop, daemon=True)
+    thread.start()
+    yield port, connections
+    stop.set()
+    thread.join(timeout=1)
+    server.close()
+
+
+@pytest.mark.slow
+async def test_render_context_cannot_open_a_websocket(renderer, tcp_listener):
+    """SSRF defence in depth: caller markup cannot open a WebSocket out of the render context."""
+    port, connections = tcp_listener
+    html = f"""<html><body><script>
+        try {{ new WebSocket("ws://127.0.0.1:{port}/probe"); }} catch (e) {{}}
+        </script></body></html>"""
+
+    await renderer.render(html)
+    await asyncio.sleep(0.3)  # give any (blocked) connection attempt time to land
+
+    assert connections == []

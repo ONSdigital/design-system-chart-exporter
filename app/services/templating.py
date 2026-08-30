@@ -13,12 +13,21 @@ from jinja2 import ChainableUndefined, Environment, FileSystemLoader, TemplateEr
 from jinja2.filters import do_tojson
 from jinja2.runtime import Undefined
 from jinja2.utils import pass_eval_context
-from markupsafe import Markup
+from markupsafe import Markup, escape
 
 from app.domain.exceptions import RenderError
 
 TEMPLATES_DIR = Path(__file__).parents[2] / "templates"
 _CHART_TEMPLATE = "chart.html"
+
+# Keys of chart_config whose contents a Design System macro renders through a
+# `| safe` filter (i.e. as raw HTML, bypassing autoescape). chart_config is an
+# opaque, caller-controlled payload, so any string under one of these keys is
+# HTML-escaped before templating; a value like "<script>..." then renders as
+# inert text instead of executing in the render context. This is defence in
+# depth behind the page CSP (see templates/chart.html) — it closes the known
+# injection sink without our having to model the rest of the config.
+_RAW_HTML_KEYS = ("download",)
 
 
 def extend(value: list[Any], element: Any) -> None:
@@ -36,6 +45,29 @@ def extend(value: list[Any], element: Any) -> None:
         raise TypeError("First argument must be a list.")
 
     return value.append(element)
+
+
+def _escape_strings(value: Any) -> Any:
+    """Recursively HTML-escape every string in a nested structure."""
+    if isinstance(value, str):
+        return str(escape(value))
+    if isinstance(value, dict):
+        return {key: _escape_strings(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_escape_strings(item) for item in value]
+    return value
+
+
+def _neutralise_raw_html_sinks(chart_config: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of chart_config with strings under raw-HTML keys escaped.
+
+    Only the top-level keys in ``_RAW_HTML_KEYS`` are touched; the rest of the
+    (opaque) config is passed through untouched so the Design System contract
+    can evolve freely.
+    """
+    if not any(key in chart_config for key in _RAW_HTML_KEYS):
+        return chart_config
+    return {key: _escape_strings(value) if key in _RAW_HTML_KEYS else value for key, value in chart_config.items()}
 
 
 def _clean_undefined(value: Any) -> Any:
@@ -95,7 +127,8 @@ def render_chart_html(*, chart_config: dict[str, Any], language: str) -> str:
         RenderError: if the templates are missing (design-system assets not
             vendored) or the config breaks template rendering.
     """
+    safe_config = _neutralise_raw_html_sinks(chart_config)
     try:
-        return _environment().get_template(_CHART_TEMPLATE).render(chart_config=chart_config, language=language)
+        return _environment().get_template(_CHART_TEMPLATE).render(chart_config=safe_config, language=language)
     except (TemplateError, TypeError, OSError) as exc:
         raise RenderError(f"chart template rendering failed: {exc}") from exc

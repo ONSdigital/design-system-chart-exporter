@@ -17,7 +17,7 @@ The service has exactly one job:
 > and return the object's metadata.
 
 | In scope                                            | Out of scope (owned elsewhere)                                                                                                        |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+|-----------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|
 | `POST /charts` — synchronous render + store         | Publishing / unpublishing, signed URLs, object lifecycle (Wagtail)                                                                    |
 | `GET /health` — DP-standards health check           | Authentication (the API router upstream)                                                                                              |
 | Private upload, deterministic key `charts/{id}.png` | Caching / deduplication (the service is deliberately **non-idempotent**); orphan-object cleanup after a client disconnect (see below) |
@@ -126,7 +126,7 @@ tests/               four layers (see §9)
 **The dependency rule (enforced, not aspirational):**
 
 | Package                 | May import                                     | Must never import                 |
-| ----------------------- | ---------------------------------------------- | --------------------------------- |
+|-------------------------|------------------------------------------------|-----------------------------------|
 | `api/`                  | `services/`, `storage/`, `domain/`, `schemas/` | —                                 |
 | `services/`, `storage/` | `domain/`, each other's Protocols              | FastAPI, Starlette, anything HTTP |
 | `domain/`               | stdlib only                                    | any of our packages               |
@@ -203,7 +203,7 @@ All non-2xx responses have the shape
 descriptions only. Handlers are registered for:
 
 | Exception                                       | Status              | Code                                                                                    | Log level                                     |
-| ----------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------- |
+|-------------------------------------------------|---------------------|-----------------------------------------------------------------------------------------|-----------------------------------------------|
 | `RequestValidationError` (incl. malformed JSON) | 400                 | `invalid_language` / `invalid_device` / `invalid_chart_config` / `invalid_request_body` | info (codes only — never the offending input) |
 | `RequestError` (guards, e.g. 415)               | as raised           | as raised                                                                               | info                                          |
 | `RenderError`                                   | 500                 | `render_failed`                                                                         | error + stack                                 |
@@ -357,7 +357,7 @@ start time. The `checks` list is built with `all(...)`, so a second check
 ## 6. Design patterns in use
 
 | Pattern                                                    | Where                                                                                              | Why                                                                                                                   |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+|------------------------------------------------------------|----------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
 | **Layered architecture with a dependency rule**            | `api/` → `services/`/`storage/` → `domain/`                                                        | Services and storage are testable and reusable without HTTP; the route layer is thin                                  |
 | **Dependency injection (constructor + FastAPI `Depends`)** | `ChartExportService(renderer, storage, key_prefix)`, `get_chart_exporter`, `Depends(get_settings)` | Construction separated from use; production wiring in lifespan, fakes in tests via `dependency_overrides`             |
 | **Structural interfaces (Protocols)**                      | `ChartExporter`, `SupportsRender`, `StorageBackend`                                                | Consumers declare what they need; implementations conform by shape with no inheritance or imports in either direction |
@@ -376,7 +376,7 @@ start time. The `checks` list is built with `all(...)`, so a second check
 ## 7. Decisions and the alternatives rejected
 
 | Decision                                                             | Alternative(s) rejected                        | Reason                                                                                                                                              |
-| -------------------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+|----------------------------------------------------------------------|------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | `async_playwright`, one browser per process, one context per request | Browser per request (spike); `sync_playwright` | ~500 ms cold start and process growth per request; sync API deadlocks inside an event loop                                                          |
 | `asyncio.Semaphore` sized by memory (default 4)                      | Unbounded concurrency; CPU-based sizing        | Each open context ≈ 50–100 MB; the bound is what the pod memory limit is sized against                                                              |
 | Two timeouts (queue → 503, render → 500)                             | One timeout; none                              | Unbounded queueing serves nobody; a pinned slot wedges the service while liveness passes                                                            |
@@ -443,7 +443,7 @@ Four layers, each faking exactly the layer below it — possible only because
 every boundary is a Protocol with constructor injection.
 
 | Layer                 | Location                               | Fakes                                                                                                | Proves                                                                                                                                                  |
-| --------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|-----------------------|----------------------------------------|------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
 | API (the bulk)        | `tests/unit/api/`                      | `StubExporter` via `dependency_overrides`, or `StubRenderer` + `MemoryStorageBackend` on `app.state` | Every status code and error document, byte-exact; the wiring from `app.state` through the real service                                                  |
 | Service orchestration | `tests/unit/services/test_exporter.py` | `StubRenderer`, `MemoryStorageBackend`                                                               | id-first ordering, key derivation, nothing stored on failure                                                                                            |
 | Renderer              | `tests/unit/services/test_renderer.py` | fast tier: `_do_render` stubbed; slow tier: real Chromium                                            | semaphore bounds, both timeouts and slot release (fast); DSF pixel doubling, element screenshot, real DS chart with zero network, crash recovery (slow) |
@@ -483,7 +483,7 @@ health always reports OK, or `s3_bucket` becomes optional.
 ## 11. How the design accommodates foreseeable change
 
 | Foreseeable change                                | What changes                                                                                          | What does not                                                                           |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+|---------------------------------------------------|-------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
 | Welsh (`language=cy`)                             | `Literal["en", "cy"]` in the request schema; `language` already flows to the template's `<html lang>` | Route, service, renderer, storage                                                       |
 | `device=mobile`                                   | A per-device viewport/scale lookup replacing the single Settings values                               | Everything downstream of the renderer's constructor args                                |
 | Canonical viewport / `device_scale_factor` agreed | Env vars                                                                                              | Code — dimensions are already read from the PNG, so metadata stays correct at any scale |

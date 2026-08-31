@@ -95,7 +95,7 @@ Every non-2xx response uses the shared error document:
 ```
 
 | Status | Codes                                                                                | When                                                                         |
-| ------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+|--------|--------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
 | 400    | `invalid_language`, `invalid_device`, `invalid_chart_config`, `invalid_request_body` | Missing/unsupported fields, empty or non-object chart_config, malformed JSON |
 | 413    | `request_body_too_large`                                                             | Body exceeds the configured cap (default 1MB)                                |
 | 415    | `unsupported_media_type`                                                             | Content-Type is not `application/json`                                       |
@@ -164,7 +164,7 @@ All service settings come from the environment with the `CHART_EXPORTER_`
 prefix (12-factor; there is no config file):
 
 | Environment variable                       | Required | Default   | Description                                                                                        |
-| ------------------------------------------ | -------- | --------- | -------------------------------------------------------------------------------------------------- |
+|--------------------------------------------|----------|-----------|----------------------------------------------------------------------------------------------------|
 | `CHART_EXPORTER_S3_BUCKET`                 | **yes**  | —         | Target bucket. A missing value crashes the service at startup, by design.                          |
 | `CHART_EXPORTER_S3_ENDPOINT_URL`           | no       | unset     | Custom S3 endpoint. Set to Floci locally; leave unset in AWS.                                      |
 | `CHART_EXPORTER_S3_REGION`                 | no       | unset     | Region; unset defers to the AWS default chain.                                                     |
@@ -441,7 +441,7 @@ By default, the logging configuration is set to log messages at the `INFO` level
 Logging can be configured using the following environment variables:
 
 | Environment Variable | Description                                                            | Default Value |
-| -------------------- | ---------------------------------------------------------------------- | ------------- |
+|----------------------|------------------------------------------------------------------------|---------------|
 | `LOG_LEVEL`          | The logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. | `INFO`        |
 | `LOG_AS_JSON`        | Whether to log messages as JSON. One of `true` or `false`.             | `true`        |
 

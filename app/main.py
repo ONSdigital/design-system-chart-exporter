@@ -101,6 +101,12 @@ def custom_openapi() -> dict[str, Any]:
     for path in schema.get("paths", {}).values():
         for operation in path.values():
             operation.get("responses", {}).pop("422", None)
+    # With every 422 removed, FastAPI's auto-generated validation schemas are
+    # orphaned — drop them so the published schema has no unreferenced (and
+    # unbounded-array) definitions.
+    component_schemas = schema.get("components", {}).get("schemas", {})
+    for orphan in ("HTTPValidationError", "ValidationError"):
+        component_schemas.pop(orphan, None)
     app.openapi_schema = schema
     return schema
 

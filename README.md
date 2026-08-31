@@ -35,11 +35,11 @@ object (caching/deduplication is the caller's job).
 - [Architecture](#architecture)
 - [Configuration](#configuration)
 - [Getting Started](#getting-started)
-    - [Pre-requisites](#pre-requisites)
-    - [Installation](#installation)
+  - [Pre-requisites](#pre-requisites)
+  - [Installation](#installation)
 - [Development](#development)
-    - [Run Tests with Coverage](#run-tests-with-coverage)
-    - [Linting and Formatting](#linting-and-formatting)
+  - [Run Tests with Coverage](#run-tests-with-coverage)
+  - [Linting and Formatting](#linting-and-formatting)
 - [Security model](#security-model)
 - [Deployment notes](#deployment-notes)
 - [Contributing](#contributing)
@@ -97,10 +97,10 @@ Every non-2xx response uses the shared error document:
 | Status | Codes | When |
 | --- | --- | --- |
 | 400 | `invalid_language`, `invalid_device`, `invalid_chart_config`, `invalid_request_body` | Missing/unsupported fields, empty or non-object chart_config, malformed JSON |
-| 413 | `request_body_too_large` | Body exceeds the configured cap (default 1MB) — spec extension, flagged to team |
+| 413 | `request_body_too_large` | Body exceeds the configured cap (default 1MB) |
 | 415 | `unsupported_media_type` | Content-Type is not `application/json` |
 | 500 | `render_failed`, `render_timeout`, `storage_failed`, `internal_error` | Server-side render/upload failure |
-| 503 | `renderer_busy` | Render queue saturated; includes `Retry-After` — spec extension, flagged to team |
+| 503 | `renderer_busy` | Render queue saturated; includes `Retry-After` |
 
 Descriptions are client-facing and never contain internal detail; full
 detail (stack traces, boto3 errors) goes to the logs only.
@@ -277,9 +277,6 @@ Ensure you have the following installed:
 
 By default, the application will be available at [http://localhost:30300](http://localhost:30300).
 This can be customised by setting the `WEB_PORT` environment variable.
-
-For a full local verification script covering every behaviour, see
-[docs/manual-testing.md](docs/manual-testing.md).
 
 ## Development
 

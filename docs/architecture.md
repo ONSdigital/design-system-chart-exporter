@@ -16,12 +16,12 @@ The service has exactly one job:
 > headless Chromium, upload it **privately** to S3-compatible object storage,
 > and return the object's metadata.
 
-| In scope | Out of scope (owned elsewhere) |
-| --- | --- |
-| `POST /charts` — synchronous render + store | Publishing / unpublishing, signed URLs, object lifecycle (Wagtail) |
-| `GET /health` — DP-standards health check | Authentication (the API router upstream) |
+| In scope                                            | Out of scope (owned elsewhere)                                                                                                        |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /charts` — synchronous render + store         | Publishing / unpublishing, signed URLs, object lifecycle (Wagtail)                                                                    |
+| `GET /health` — DP-standards health check           | Authentication (the API router upstream)                                                                                              |
 | Private upload, deterministic key `charts/{id}.png` | Caching / deduplication (the service is deliberately **non-idempotent**); orphan-object cleanup after a client disconnect (see below) |
-| Structured JSON logging with correlation IDs | Background / async job patterns (render is synchronous, connection held) |
+| Structured JSON logging with correlation IDs        | Background / async job patterns (render is synchronous, connection held)                                                              |
 
 The caller is Wagtail. The service never manages access state beyond
 uploading privately.
@@ -125,11 +125,11 @@ tests/               four layers (see §9)
 
 **The dependency rule (enforced, not aspirational):**
 
-| Package | May import | Must never import |
-| --- | --- | --- |
-| `api/` | `services/`, `storage/`, `domain/`, `schemas/` | — |
-| `services/`, `storage/` | `domain/`, each other's Protocols | FastAPI, Starlette, anything HTTP |
-| `domain/` | stdlib only | any of our packages |
+| Package                 | May import                                     | Must never import                 |
+| ----------------------- | ---------------------------------------------- | --------------------------------- |
+| `api/`                  | `services/`, `storage/`, `domain/`, `schemas/` | —                                 |
+| `services/`, `storage/` | `domain/`, each other's Protocols              | FastAPI, Starlette, anything HTTP |
+| `domain/`               | stdlib only                                    | any of our packages               |
 
 You can see the rule bite in small places: the upload offload uses
 `asyncio.to_thread` rather than Starlette's `run_in_threadpool` — identical
@@ -202,16 +202,16 @@ All non-2xx responses have the shape
 `{"errors": [{"code": ..., "description": ...}]}` with client-facing
 descriptions only. Handlers are registered for:
 
-| Exception | Status | Code | Log level |
-| --- | --- | --- | --- |
-| `RequestValidationError` (incl. malformed JSON) | 400 | `invalid_language` / `invalid_device` / `invalid_chart_config` / `invalid_request_body` | info (codes only — never the offending input) |
-| `RequestError` (guards, e.g. 415) | as raised | as raised | info |
-| `RenderError` | 500 | `render_failed` | error + stack |
-| `RenderTimeout` | 500 | `render_timeout` | error + stack |
-| `StorageError` | 500 | `storage_failed` | error + stack |
-| `RendererBusy` | 503 + `Retry-After` | `renderer_busy` | warning (backpressure working, not a fault) |
-| Starlette `HTTPException` (404/405/413) | as raised | `not_found` / `method_not_allowed` / `request_body_too_large` | — |
-| `Exception` (catch-all) | 500 | `internal_error` | error + stack |
+| Exception                                       | Status              | Code                                                                                    | Log level                                     |
+| ----------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `RequestValidationError` (incl. malformed JSON) | 400                 | `invalid_language` / `invalid_device` / `invalid_chart_config` / `invalid_request_body` | info (codes only — never the offending input) |
+| `RequestError` (guards, e.g. 415)               | as raised           | as raised                                                                               | info                                          |
+| `RenderError`                                   | 500                 | `render_failed`                                                                         | error + stack                                 |
+| `RenderTimeout`                                 | 500                 | `render_timeout`                                                                        | error + stack                                 |
+| `StorageError`                                  | 500                 | `storage_failed`                                                                        | error + stack                                 |
+| `RendererBusy`                                  | 503 + `Retry-After` | `renderer_busy`                                                                         | warning (backpressure working, not a fault)   |
+| Starlette `HTTPException` (404/405/413)         | as raised           | `not_found` / `method_not_allowed` / `request_body_too_large`                           | —                                             |
+| `Exception` (catch-all)                         | 500                 | `internal_error`                                                                        | error + stack                                 |
 
 Starlette resolves handlers by walking the exception's MRO, so
 `RenderTimeout` (a subclass of `RenderError`) gets its specific handler
@@ -356,44 +356,44 @@ start time. The `checks` list is built with `all(...)`, so a second check
 
 ## 6. Design patterns in use
 
-| Pattern | Where | Why |
-| --- | --- | --- |
-| **Layered architecture with a dependency rule** | `api/` → `services/`/`storage/` → `domain/` | Services and storage are testable and reusable without HTTP; the route layer is thin |
-| **Dependency injection (constructor + FastAPI `Depends`)** | `ChartExportService(renderer, storage, key_prefix)`, `get_chart_exporter`, `Depends(get_settings)` | Construction separated from use; production wiring in lifespan, fakes in tests via `dependency_overrides` |
-| **Structural interfaces (Protocols)** | `ChartExporter`, `SupportsRender`, `StorageBackend` | Consumers declare what they need; implementations conform by shape with no inheritance or imports in either direction |
-| **Consumer-defined interface** | Protocols live next to the code that needs them | The interface is sized to the consumer's needs, not the implementation's surface |
-| **Composition root** | `main.py` + lifespan | One place to read the whole shape of the service; nothing stateful is created at import time |
-| **Singleton per process + façade per request** | browser / boto3 client on `app.state`; `ChartExportService` per request | Expensive resources shared; request handling stateless |
-| **Exception translation at boundaries** | Playwright → `RenderError`; boto3 → `StorageError`; domain → HTTP in `errors.py` | Each layer speaks its own failure vocabulary; internals never reach clients |
-| **Double-checked locking** | `_ensure_browser` | One relaunch under N concurrent failures |
-| **Bounded-resource guard (semaphore + timeouts)** | `ChartRenderer.render` | Predictable memory ceiling and bounded latency |
-| **Fault injection in fakes** | `MemoryStorageBackend(fail_with=...)`, `StubExporter(error=...)` | Error paths tested through real code, not mocks of internals |
-| **Pure functions where possible** | `read_png_dimensions`, `render_chart_html`, `inline_fonts` | Trivially unit-testable with hand-built inputs |
-| **Immutable value objects** | frozen `Settings`, frozen slotted dataclasses | Safe to share across async tasks; typos in attribute names fail loudly |
+| Pattern                                                    | Where                                                                                              | Why                                                                                                                   |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Layered architecture with a dependency rule**            | `api/` → `services/`/`storage/` → `domain/`                                                        | Services and storage are testable and reusable without HTTP; the route layer is thin                                  |
+| **Dependency injection (constructor + FastAPI `Depends`)** | `ChartExportService(renderer, storage, key_prefix)`, `get_chart_exporter`, `Depends(get_settings)` | Construction separated from use; production wiring in lifespan, fakes in tests via `dependency_overrides`             |
+| **Structural interfaces (Protocols)**                      | `ChartExporter`, `SupportsRender`, `StorageBackend`                                                | Consumers declare what they need; implementations conform by shape with no inheritance or imports in either direction |
+| **Consumer-defined interface**                             | Protocols live next to the code that needs them                                                    | The interface is sized to the consumer's needs, not the implementation's surface                                      |
+| **Composition root**                                       | `main.py` + lifespan                                                                               | One place to read the whole shape of the service; nothing stateful is created at import time                          |
+| **Singleton per process + façade per request**             | browser / boto3 client on `app.state`; `ChartExportService` per request                            | Expensive resources shared; request handling stateless                                                                |
+| **Exception translation at boundaries**                    | Playwright → `RenderError`; boto3 → `StorageError`; domain → HTTP in `errors.py`                   | Each layer speaks its own failure vocabulary; internals never reach clients                                           |
+| **Double-checked locking**                                 | `_ensure_browser`                                                                                  | One relaunch under N concurrent failures                                                                              |
+| **Bounded-resource guard (semaphore + timeouts)**          | `ChartRenderer.render`                                                                             | Predictable memory ceiling and bounded latency                                                                        |
+| **Fault injection in fakes**                               | `MemoryStorageBackend(fail_with=...)`, `StubExporter(error=...)`                                   | Error paths tested through real code, not mocks of internals                                                          |
+| **Pure functions where possible**                          | `read_png_dimensions`, `render_chart_html`, `inline_fonts`                                         | Trivially unit-testable with hand-built inputs                                                                        |
+| **Immutable value objects**                                | frozen `Settings`, frozen slotted dataclasses                                                      | Safe to share across async tasks; typos in attribute names fail loudly                                                |
 
 ---
 
 ## 7. Decisions and the alternatives rejected
 
-| Decision | Alternative(s) rejected | Reason |
-| --- | --- | --- |
-| `async_playwright`, one browser per process, one context per request | Browser per request (spike); `sync_playwright` | ~500 ms cold start and process growth per request; sync API deadlocks inside an event loop |
-| `asyncio.Semaphore` sized by memory (default 4) | Unbounded concurrency; CPU-based sizing | Each open context ≈ 50–100 MB; the bound is what the pod memory limit is sized against |
-| Two timeouts (queue → 503, render → 500) | One timeout; none | Unbounded queueing serves nobody; a pinned slot wedges the service while liveness passes |
-| Pure ASGI middleware | `BaseHTTPMiddleware` | It buffers the body, defeating a streaming 413 cap |
-| 415 as a router-level dependency | Middleware | Dependency scope is exactly the charts router; middleware would police `/health` too |
-| 422 → 400 remap with hand-written descriptions | FastAPI default 422 | Spec mandates 400 and a fixed document; pydantic's raw errors echo the input |
-| `chart_config` opaque (`dict[str, Any]`) | Model the DS schema | Every validated field is a field we must change when the DS changes; validation scope follows ownership |
-| Dimensions from PNG bytes | Playwright bounding box | Bounding boxes are CSS pixels; wrong at `device_scale_factor > 1` |
-| Sync `StorageBackend` + `to_thread` at the call site | Async Protocol / aioboto3 | Keeps implementations trivial; one async concern in one place; upload is not the bottleneck |
-| Protocols over ABCs | ABCs | No shared behaviour to inherit; implementations must not import interface modules (dependency rule); drift is caught by a typed assignment in tests |
-| Vendor all DS assets at build time and inline them | Load from the CDN at render time | Zero runtime fetches makes the total network block possible |
-| Block **all** network in the render context | Allowlist | Nothing legitimate to fetch; an allowlist is a maintenance surface and an SSRF hole waiting to happen |
-| Env-only configuration, fail loudly at boot | Config files; lazy validation | 12-factor; a misconfigured pod must die before receiving traffic |
-| Module-level `app` singleton | `create_app()` factory | Simpler for uvicorn/gunicorn targets; tests compensate with an autouse override-reset fixture |
-| Frozen dataclasses in `domain/` | pydantic models everywhere | Internally-built data needs no validation; `domain/` stays dependency-free |
-| `python:3.14-slim` + `playwright install-deps` | `mcr.microsoft.com/playwright/python` | Python 3.14 and the template's uv-based build; system deps are installed the same way |
-| Floci for local S3 | MinIO, moto | Speaks the AWS wire protocol unmodified; compat image ships init hooks and the aws CLI for bucket bootstrap |
+| Decision                                                             | Alternative(s) rejected                        | Reason                                                                                                                                              |
+| -------------------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `async_playwright`, one browser per process, one context per request | Browser per request (spike); `sync_playwright` | ~500 ms cold start and process growth per request; sync API deadlocks inside an event loop                                                          |
+| `asyncio.Semaphore` sized by memory (default 4)                      | Unbounded concurrency; CPU-based sizing        | Each open context ≈ 50–100 MB; the bound is what the pod memory limit is sized against                                                              |
+| Two timeouts (queue → 503, render → 500)                             | One timeout; none                              | Unbounded queueing serves nobody; a pinned slot wedges the service while liveness passes                                                            |
+| Pure ASGI middleware                                                 | `BaseHTTPMiddleware`                           | It buffers the body, defeating a streaming 413 cap                                                                                                  |
+| 415 as a router-level dependency                                     | Middleware                                     | Dependency scope is exactly the charts router; middleware would police `/health` too                                                                |
+| 422 → 400 remap with hand-written descriptions                       | FastAPI default 422                            | Spec mandates 400 and a fixed document; pydantic's raw errors echo the input                                                                        |
+| `chart_config` opaque (`dict[str, Any]`)                             | Model the DS schema                            | Every validated field is a field we must change when the DS changes; validation scope follows ownership                                             |
+| Dimensions from PNG bytes                                            | Playwright bounding box                        | Bounding boxes are CSS pixels; wrong at `device_scale_factor > 1`                                                                                   |
+| Sync `StorageBackend` + `to_thread` at the call site                 | Async Protocol / aioboto3                      | Keeps implementations trivial; one async concern in one place; upload is not the bottleneck                                                         |
+| Protocols over ABCs                                                  | ABCs                                           | No shared behaviour to inherit; implementations must not import interface modules (dependency rule); drift is caught by a typed assignment in tests |
+| Vendor all DS assets at build time and inline them                   | Load from the CDN at render time               | Zero runtime fetches makes the total network block possible                                                                                         |
+| Block **all** network in the render context                          | Allowlist                                      | Nothing legitimate to fetch; an allowlist is a maintenance surface and an SSRF hole waiting to happen                                               |
+| Env-only configuration, fail loudly at boot                          | Config files; lazy validation                  | 12-factor; a misconfigured pod must die before receiving traffic                                                                                    |
+| Module-level `app` singleton                                         | `create_app()` factory                         | Simpler for uvicorn/gunicorn targets; tests compensate with an autouse override-reset fixture                                                       |
+| Frozen dataclasses in `domain/`                                      | pydantic models everywhere                     | Internally-built data needs no validation; `domain/` stays dependency-free                                                                          |
+| `python:3.14-slim` + `playwright install-deps`                       | `mcr.microsoft.com/playwright/python`          | Python 3.14 and the template's uv-based build; system deps are installed the same way                                                               |
+| Floci for local S3                                                   | MinIO, moto                                    | Speaks the AWS wire protocol unmodified; compat image ships init hooks and the aws CLI for bucket bootstrap                                         |
 
 ---
 
@@ -442,14 +442,14 @@ private network**, so these are load-bearing:
 Four layers, each faking exactly the layer below it — possible only because
 every boundary is a Protocol with constructor injection.
 
-| Layer | Location | Fakes | Proves |
-| --- | --- | --- | --- |
-| API (the bulk) | `tests/unit/api/` | `StubExporter` via `dependency_overrides`, or `StubRenderer` + `MemoryStorageBackend` on `app.state` | Every status code and error document, byte-exact; the wiring from `app.state` through the real service |
-| Service orchestration | `tests/unit/services/test_exporter.py` | `StubRenderer`, `MemoryStorageBackend` | id-first ordering, key derivation, nothing stored on failure |
-| Renderer | `tests/unit/services/test_renderer.py` | fast tier: `_do_render` stubbed; slow tier: real Chromium | semaphore bounds, both timeouts and slot release (fast); DSF pixel doubling, element screenshot, real DS chart with zero network, crash recovery (slow) |
-| Templating / PNG | `tests/unit/services/` | none (vendored templates, hand-built bytes) | the `</script>`, U+2028 and autoescape regressions; IHDR parsing edge cases |
-| Storage | `tests/unit/storage/` | botocore `Stubber` (fast); Floci (e2e) | exact `put_object` params incl. ACL present/absent; real round-trip and no public grants |
-| End to end | `tests/e2e/` | none | POST → 201 → object in Floci → parsed PNG dimensions equal the response |
+| Layer                 | Location                               | Fakes                                                                                                | Proves                                                                                                                                                  |
+| --------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API (the bulk)        | `tests/unit/api/`                      | `StubExporter` via `dependency_overrides`, or `StubRenderer` + `MemoryStorageBackend` on `app.state` | Every status code and error document, byte-exact; the wiring from `app.state` through the real service                                                  |
+| Service orchestration | `tests/unit/services/test_exporter.py` | `StubRenderer`, `MemoryStorageBackend`                                                               | id-first ordering, key derivation, nothing stored on failure                                                                                            |
+| Renderer              | `tests/unit/services/test_renderer.py` | fast tier: `_do_render` stubbed; slow tier: real Chromium                                            | semaphore bounds, both timeouts and slot release (fast); DSF pixel doubling, element screenshot, real DS chart with zero network, crash recovery (slow) |
+| Templating / PNG      | `tests/unit/services/`                 | none (vendored templates, hand-built bytes)                                                          | the `</script>`, U+2028 and autoescape regressions; IHDR parsing edge cases                                                                             |
+| Storage               | `tests/unit/storage/`                  | botocore `Stubber` (fast); Floci (e2e)                                                               | exact `put_object` params incl. ACL present/absent; real round-trip and no public grants                                                                |
+| End to end            | `tests/e2e/`                           | none                                                                                                 | POST → 201 → object in Floci → parsed PNG dimensions equal the response                                                                                 |
 
 `make test` runs the fast layers in parallel with a **100 % coverage gate**
 (browser-touching methods are marked `pragma: no cover` and measured by the
@@ -482,19 +482,19 @@ health always reports OK, or `s3_bucket` becomes optional.
 
 ## 11. How the design accommodates foreseeable change
 
-| Foreseeable change | What changes | What does not |
-| --- | --- | --- |
-| Welsh (`language=cy`) | `Literal["en", "cy"]` in the request schema; `language` already flows to the template's `<html lang>` | Route, service, renderer, storage |
-| `device=mobile` | A per-device viewport/scale lookup replacing the single Settings values | Everything downstream of the renderer's constructor args |
-| Canonical viewport / `device_scale_factor` agreed | Env vars | Code — dimensions are already read from the PNG, so metadata stays correct at any scale |
-| DS release | `.design-system-version`, re-vendor | The page shell and the service — the DS macro owns the chart markup |
-| DS render-complete signal | `_wait_until_ready` (one method) | The rest of the renderer |
-| `BucketOwnerEnforced` bucket | `CHART_EXPORTER_S3_SET_PRIVATE_ACL=false` | Code |
-| A different object store | A new `StorageBackend` implementation | Service, route, tests above the storage layer |
-| S3 reachability in `/health` | A second `Check` appended to the list | Aggregation, status mapping |
-| Metrics / histograms | Emit from the already-measured `render_ms` / `upload_ms` | Orchestration |
-| Async/queued rendering (future phase) | A new route + worker over the same `ChartExportService` | Renderer, storage, templating |
-| Wagtail integration, auth | Upstream at the API router | This service |
+| Foreseeable change                                | What changes                                                                                          | What does not                                                                           |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Welsh (`language=cy`)                             | `Literal["en", "cy"]` in the request schema; `language` already flows to the template's `<html lang>` | Route, service, renderer, storage                                                       |
+| `device=mobile`                                   | A per-device viewport/scale lookup replacing the single Settings values                               | Everything downstream of the renderer's constructor args                                |
+| Canonical viewport / `device_scale_factor` agreed | Env vars                                                                                              | Code — dimensions are already read from the PNG, so metadata stays correct at any scale |
+| DS release                                        | `.design-system-version`, re-vendor                                                                   | The page shell and the service — the DS macro owns the chart markup                     |
+| DS render-complete signal                         | `_wait_until_ready` (one method)                                                                      | The rest of the renderer                                                                |
+| `BucketOwnerEnforced` bucket                      | `CHART_EXPORTER_S3_SET_PRIVATE_ACL=false`                                                             | Code                                                                                    |
+| A different object store                          | A new `StorageBackend` implementation                                                                 | Service, route, tests above the storage layer                                           |
+| S3 reachability in `/health`                      | A second `Check` appended to the list                                                                 | Aggregation, status mapping                                                             |
+| Metrics / histograms                              | Emit from the already-measured `render_ms` / `upload_ms`                                              | Orchestration                                                                           |
+| Async/queued rendering (future phase)             | A new route + worker over the same `ChartExportService`                                               | Renderer, storage, templating                                                           |
+| Wagtail integration, auth                         | Upstream at the API router                                                                            | This service                                                                            |
 
 The properties that make this cheap: the opaque config (no DS field
 knowledge to update), Protocol boundaries (swap any layer without touching

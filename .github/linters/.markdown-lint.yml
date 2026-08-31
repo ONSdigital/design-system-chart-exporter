@@ -87,10 +87,12 @@ MD013:
   heading_line_length: 80
   # Number of characters for code blocks
   code_block_line_length: 120
-  # Include code blocks
-  code_blocks: true
-  # Include tables
-  tables: true
+  # Exclude code blocks: sample payloads and command lines cannot always be
+  # reflowed at 120 without changing their meaning.
+  code_blocks: false
+  # Exclude tables: a reference table row (e.g. an env-var description) is a
+  # single logical line that cannot be wrapped.
+  tables: false
   # Include headings
   headings: true
   # Strict length checking

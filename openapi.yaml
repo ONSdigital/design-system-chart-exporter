@@ -198,6 +198,7 @@ components:
           items:
             $ref: "#/components/schemas/ErrorItem"
           type: array
+          maxItems: 50
           title: Errors
       type: object
       required:

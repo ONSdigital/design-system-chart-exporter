@@ -35,11 +35,11 @@ object (caching/deduplication is the caller's job).
 - [Architecture](#architecture)
 - [Configuration](#configuration)
 - [Getting Started](#getting-started)
-  - [Pre-requisites](#pre-requisites)
-  - [Installation](#installation)
+    - [Pre-requisites](#pre-requisites)
+    - [Installation](#installation)
 - [Development](#development)
-  - [Run Tests with Coverage](#run-tests-with-coverage)
-  - [Linting and Formatting](#linting-and-formatting)
+    - [Run Tests with Coverage](#run-tests-with-coverage)
+    - [Linting and Formatting](#linting-and-formatting)
 - [Security model](#security-model)
 - [Deployment notes](#deployment-notes)
 - [Contributing](#contributing)
@@ -94,13 +94,13 @@ Every non-2xx response uses the shared error document:
 { "errors": [ { "code": "invalid_chart_config", "description": "chart_config is required and must be a non-empty object." } ] }
 ```
 
-| Status | Codes | When |
-| --- | --- | --- |
-| 400 | `invalid_language`, `invalid_device`, `invalid_chart_config`, `invalid_request_body` | Missing/unsupported fields, empty or non-object chart_config, malformed JSON |
-| 413 | `request_body_too_large` | Body exceeds the configured cap (default 1MB) |
-| 415 | `unsupported_media_type` | Content-Type is not `application/json` |
-| 500 | `render_failed`, `render_timeout`, `storage_failed`, `internal_error` | Server-side render/upload failure |
-| 503 | `renderer_busy` | Render queue saturated; includes `Retry-After` |
+| Status | Codes                                                                                | When                                                                         |
+| ------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| 400    | `invalid_language`, `invalid_device`, `invalid_chart_config`, `invalid_request_body` | Missing/unsupported fields, empty or non-object chart_config, malformed JSON |
+| 413    | `request_body_too_large`                                                             | Body exceeds the configured cap (default 1MB)                                |
+| 415    | `unsupported_media_type`                                                             | Content-Type is not `application/json`                                       |
+| 500    | `render_failed`, `render_timeout`, `storage_failed`, `internal_error`                | Server-side render/upload failure                                            |
+| 503    | `renderer_busy`                                                                      | Render queue saturated; includes `Retry-After`                               |
 
 Descriptions are client-facing and never contain internal detail; full
 detail (stack traces, boto3 errors) goes to the logs only.
@@ -163,22 +163,22 @@ loop. A crashed browser is relaunched on demand under a lock.
 All service settings come from the environment with the `CHART_EXPORTER_`
 prefix (12-factor; there is no config file):
 
-| Environment variable | Required | Default | Description |
-| --- | --- | --- | --- |
-| `CHART_EXPORTER_S3_BUCKET` | **yes** | — | Target bucket. A missing value crashes the service at startup, by design. |
-| `CHART_EXPORTER_S3_ENDPOINT_URL` | no | unset | Custom S3 endpoint. Set to Floci locally; leave unset in AWS. |
-| `CHART_EXPORTER_S3_REGION` | no | unset | Region; unset defers to the AWS default chain. |
-| `CHART_EXPORTER_S3_KEY_PREFIX` | no | `charts/` | Object key prefix. |
-| `CHART_EXPORTER_S3_SET_PRIVATE_ACL` | no | `true` | Send `ACL=private` on PutObject. Set `false` for `BucketOwnerEnforced` buckets, which reject ACLs. |
-| `CHART_EXPORTER_DESIGN_SYSTEM_VERSION` | no | `latest` | Informational; the vendored DS version is pinned by `.design-system-version` at build time. |
-| `CHART_EXPORTER_VIEWPORT_WIDTH` | no | `1200` | Render viewport width (CSS px). |
-| `CHART_EXPORTER_VIEWPORT_HEIGHT` | no | `640` | Render viewport height (CSS px). |
-| `CHART_EXPORTER_DEVICE_SCALE_FACTOR` | no | `1.0` | Device scale factor (2.0 = retina; doubles PNG pixel dimensions). |
-| `CHART_EXPORTER_MAX_CONCURRENT_RENDERS` | no | `4` | Render slots per worker (~50–100MB each). |
-| `CHART_EXPORTER_RENDER_TIMEOUT_SECONDS` | no | `15` | Bound on a single render. Must stay below the caller/gunicorn timeouts. |
-| `CHART_EXPORTER_QUEUE_TIMEOUT_SECONDS` | no | `5` | Bound on waiting for a render slot (503 + `Retry-After` after this). |
-| `CHART_EXPORTER_MAX_BODY_BYTES` | no | `1048576` | Request body cap (413 beyond it). |
-| `CHART_EXPORTER_LAUNCH_BROWSER_ON_STARTUP` | no | `true` | Launch Chromium at startup (fail fast, meaningful readiness). Tests set `false`. |
+| Environment variable                       | Required | Default   | Description                                                                                        |
+| ------------------------------------------ | -------- | --------- | -------------------------------------------------------------------------------------------------- |
+| `CHART_EXPORTER_S3_BUCKET`                 | **yes**  | —         | Target bucket. A missing value crashes the service at startup, by design.                          |
+| `CHART_EXPORTER_S3_ENDPOINT_URL`           | no       | unset     | Custom S3 endpoint. Set to Floci locally; leave unset in AWS.                                      |
+| `CHART_EXPORTER_S3_REGION`                 | no       | unset     | Region; unset defers to the AWS default chain.                                                     |
+| `CHART_EXPORTER_S3_KEY_PREFIX`             | no       | `charts/` | Object key prefix.                                                                                 |
+| `CHART_EXPORTER_S3_SET_PRIVATE_ACL`        | no       | `true`    | Send `ACL=private` on PutObject. Set `false` for `BucketOwnerEnforced` buckets, which reject ACLs. |
+| `CHART_EXPORTER_DESIGN_SYSTEM_VERSION`     | no       | `latest`  | Informational; the vendored DS version is pinned by `.design-system-version` at build time.        |
+| `CHART_EXPORTER_VIEWPORT_WIDTH`            | no       | `1200`    | Render viewport width (CSS px).                                                                    |
+| `CHART_EXPORTER_VIEWPORT_HEIGHT`           | no       | `640`     | Render viewport height (CSS px).                                                                   |
+| `CHART_EXPORTER_DEVICE_SCALE_FACTOR`       | no       | `1.0`     | Device scale factor (2.0 = retina; doubles PNG pixel dimensions).                                  |
+| `CHART_EXPORTER_MAX_CONCURRENT_RENDERS`    | no       | `4`       | Render slots per worker (~50–100MB each).                                                          |
+| `CHART_EXPORTER_RENDER_TIMEOUT_SECONDS`    | no       | `15`      | Bound on a single render. Must stay below the caller/gunicorn timeouts.                            |
+| `CHART_EXPORTER_QUEUE_TIMEOUT_SECONDS`     | no       | `5`       | Bound on waiting for a render slot (503 + `Retry-After` after this).                               |
+| `CHART_EXPORTER_MAX_BODY_BYTES`            | no       | `1048576` | Request body cap (413 beyond it).                                                                  |
+| `CHART_EXPORTER_LAUNCH_BROWSER_ON_STARTUP` | no       | `true`    | Launch Chromium at startup (fail fast, meaningful readiness). Tests set `false`.                   |
 
 AWS credentials are **never** configured through this service's own settings:
 boto3 uses the standard environment variables or the pod IAM role. Local dev
@@ -441,7 +441,7 @@ By default, the logging configuration is set to log messages at the `INFO` level
 Logging can be configured using the following environment variables:
 
 | Environment Variable | Description                                                            | Default Value |
-|----------------------|------------------------------------------------------------------------|---------------|
+| -------------------- | ---------------------------------------------------------------------- | ------------- |
 | `LOG_LEVEL`          | The logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. | `INFO`        |
 | `LOG_AS_JSON`        | Whether to log messages as JSON. One of `true` or `false`.             | `true`        |
 

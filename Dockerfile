@@ -41,6 +41,13 @@ FROM base AS dev
 
 RUN uv sync --frozen
 
+# Chromium system dependencies need root; the browser itself is installed as
+# the unprivileged user (into ~/.cache/ms-playwright)
+USER root
+RUN uv run playwright install-deps chromium && rm -rf /var/lib/apt/lists/*
+USER exporter
+RUN uv run playwright install chromium
+
 # Commit SHA and build timestamp, baked in at image build time
 ARG GIT_COMMIT=""
 ARG BUILD_TIME=""
@@ -58,9 +65,26 @@ CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "303
 FROM base AS web
 
 # Number of workers for gunicorn to spawn
-ENV WEB_CONCURRENCY=2
+ENV WEB_CONCURRENCY=1
 
 RUN uv sync --frozen --no-install-project --no-dev
+
+# Chromium system dependencies (root) + curl/unzip for the template download;
+# the browser itself is installed as the unprivileged user
+USER root
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends curl unzip ca-certificates \
+    && uv run playwright install-deps chromium \
+    && rm -rf /var/lib/apt/lists/*
+USER exporter
+RUN uv run playwright install chromium
+
+# Vendor the Design System templates and assets into the image (SSRF
+# mitigation: zero runtime fetches from any CDN)
+COPY --chown=exporter:exporter .design-system-version ./
+COPY --chown=exporter:exporter scripts/load-design-system-templates.sh scripts/inline_css_fonts.py ./scripts/
+RUN ./scripts/load-design-system-templates.sh "$(cat .design-system-version)"
+COPY --chown=exporter:exporter templates/chart.html ./templates/chart.html
 
 COPY --chown=exporter:exporter gunicorn.conf.py ./
 COPY --chown=exporter:exporter app ./app

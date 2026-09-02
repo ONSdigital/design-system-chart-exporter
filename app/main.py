@@ -1,107 +1,114 @@
-"""FastAPI application entrypoint."""
+"""FastAPI application entrypoint: app creation, lifespan, router registration."""
 
-import os
-import platform
-import tomllib
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Final, Literal
+from typing import Any
 
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from fastapi.openapi.utils import get_openapi
 
+from app.api.errors import register_exception_handlers
+from app.api.middleware import BodySizeLimitMiddleware, CorrelationIdMiddleware
+from app.api.routes.charts import router as charts_router
+from app.api.routes.health import CheckHistory
+from app.api.routes.health import router as health_router
+from app.config import get_settings
 from app.logging import configure_logging, get_logger
+from app.services.renderer import ChartRenderer
+from app.storage.s3 import S3StorageBackend
+from app.version import SERVICE_NAME, VERSION
 
-app = FastAPI()
-
-_START_TIME: Final = datetime.now(UTC)
-_PYPROJECT_PATH: Final = Path(__file__).parents[1] / "pyproject.toml"
-_GIT_COMMIT: Final = os.environ.get("GIT_COMMIT", "")
-_GIT_TAG: Final = os.environ.get("GIT_TAG", "")
-
-
-try:
-    _PROJECT: Final = tomllib.loads(_PYPROJECT_PATH.read_text(encoding="utf-8"))["project"]
-    _SERVICE_NAME = _PROJECT["name"]
-    _VERSION = _GIT_TAG or _GIT_COMMIT or _PROJECT["version"]
-except OSError, KeyError, tomllib.TOMLDecodeError:  # pragma: no cover
-    _SERVICE_NAME = "design-system-chart-exporter"
-    _VERSION = "unknown"
-
-
-def _iso8601(timestamp: datetime) -> str:
-    """Format a datetime as ISO 8601 UTC per the DP health check spec."""
-    return timestamp.isoformat(timespec="milliseconds").replace("+00:00", "Z")
-
-
-def _read_build_time() -> str:
-    """Convert the BUILD_TIME unix timestamp env var to an ISO 8601 string."""
-    build_time = os.environ.get("BUILD_TIME")
-    if not build_time:
-        return ""
-    try:
-        return _iso8601(datetime.fromtimestamp(int(build_time), tz=UTC))
-    except ValueError, OverflowError, OSError:
-        return ""
-
-
-_BUILD_TIME: Final = _read_build_time()
-
-configure_logging(namespace=_SERVICE_NAME)
+configure_logging(namespace=SERVICE_NAME)
 log = get_logger()
 
-Status = Literal["OK", "WARNING", "CRITICAL"]
 
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncGenerator[None]:
+    """Startup and shutdown logic wrapped around the application's lifetime.
 
-class VersionInfo(BaseModel):
-    """Version details for the running service."""
+    Everything before the ``yield`` runs once per worker process before the
+    first request is accepted; everything after it runs on shutdown. Loading
+    settings here means a misconfigured pod (e.g. missing
+    CHART_EXPORTER_S3_BUCKET) crashes the worker on boot with a loud
+    ValidationError instead of surfacing as a 500 on first request.
 
-    version: str
-    git_commit: str
-    build_time: str
-    language: str
-    language_version: str
-
-
-class Check(BaseModel):
-    """Result of an individual health check."""
-
-    name: str
-    status: Status
-    status_code: int | None = None
-    message: str
-    last_checked: str | None
-    last_success: str | None
-    last_failure: str | None
-
-
-class HealthResponse(BaseModel):
-    """Response body for the health check endpoint."""
-
-    status: Status
-    version: VersionInfo
-    uptime: int
-    start_time: str
-    checks: list[Check] = Field(max_length=20)
-
-
-@app.get("/health")
-def health() -> HealthResponse:
-    """Returns the service health status per the DP health check specification.
-    See: https://github.com/ONSdigital/dp-standards/blob/main/HEALTH_CHECK_SPECIFICATION.md.
+    Later phases extend this with the Playwright browser launch/close.
     """
-    log.info("health check requested")
-    now = datetime.now(UTC)
-    return HealthResponse(
-        status="OK",
-        version=VersionInfo(
-            version=_VERSION,
-            git_commit=_GIT_COMMIT,
-            build_time=_BUILD_TIME,
-            language="python",
-            language_version=platform.python_version(),
-        ),
-        uptime=int((now - _START_TIME).total_seconds() * 1000),
-        start_time=_iso8601(_START_TIME),
-        checks=[],
+    settings = get_settings()
+
+    application.state.settings = settings
+    application.state.start_time = datetime.now(UTC)
+    application.state.check_history = CheckHistory()
+
+    application.state.renderer = ChartRenderer(
+        viewport_width=settings.viewport_width,
+        viewport_height=settings.viewport_height,
+        device_scale_factor=settings.device_scale_factor,
+        max_concurrent_renders=settings.max_concurrent_renders,
+        render_timeout_seconds=settings.render_timeout_seconds,
+        queue_timeout_seconds=settings.queue_timeout_seconds,
     )
+
+    application.state.storage = S3StorageBackend(
+        bucket=settings.s3_bucket,
+        region=settings.s3_region,
+        endpoint_url=settings.s3_endpoint_url,
+        set_private_acl=settings.s3_set_private_acl,
+    )
+
+    if settings.launch_browser_on_startup:  # pragma: no cover - exercised by slow tests
+        await application.state.renderer.start()
+    log.info("service started", version=VERSION, s3_bucket=settings.s3_bucket)
+    yield
+
+    await application.state.renderer.stop()
+    log.info("service stopping")
+
+
+app = FastAPI(
+    lifespan=lifespan,
+    title="ONS Chart Exporter",
+    version=VERSION,
+    summary="Render an ONS Design System chart configuration to a PNG and store it privately.",
+)
+
+app.include_router(health_router)
+app.include_router(charts_router)
+
+app.add_middleware(BodySizeLimitMiddleware)
+# Added last = outermost: even 413s and unhandled errors carry X-Request-Id
+app.add_middleware(CorrelationIdMiddleware)
+
+register_exception_handlers(app)
+
+
+def custom_openapi() -> dict[str, Any]:
+    """Build the OpenAPI schema, removing FastAPI's auto-added 422 responses.
+
+    Validation failures are remapped to 400 in the spec's error document (see
+    api/errors.py), so a 422 never actually occurs. Stripping it keeps the
+    published schema — and clients generated from it — truthful.
+    """
+    if app.openapi_schema is not None:
+        return app.openapi_schema
+    schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        summary=app.summary,
+        routes=app.routes,
+    )
+    for path in schema.get("paths", {}).values():
+        for operation in path.values():
+            operation.get("responses", {}).pop("422", None)
+    # With every 422 removed, FastAPI's auto-generated validation schemas are
+    # orphaned — drop them so the published schema has no unreferenced (and
+    # unbounded-array) definitions.
+    component_schemas = schema.get("components", {}).get("schemas", {})
+    for orphan in ("HTTPValidationError", "ValidationError"):
+        component_schemas.pop(orphan, None)
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = custom_openapi  # type: ignore[method-assign]

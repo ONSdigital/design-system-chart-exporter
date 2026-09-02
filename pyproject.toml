@@ -7,8 +7,12 @@ license = "MIT"
 authors = [{ name = "ONSdigital" }]
 requires-python = ">=3.14"
 dependencies = [
+    "boto3>=1.43.78",
     "fastapi>=0.121.2",
     "gunicorn>=23.0.0",
+    "jinja2>=3.1.6",
+    "playwright>=1.62.0",
+    "pydantic-settings>=2.15.0",
     "structlog>=26.1.0",
     "uvicorn>=0.38.0",
     "uvicorn-worker>=0.3.0",
@@ -24,6 +28,7 @@ dev = [
     "pre-commit>=4.6.0",
     "pylint>=4.0.6",
     "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     "pytest-xdist>=3.8.0",
     "pyyaml>=6.0.3",
@@ -84,7 +89,8 @@ indent-style = "space"
 # Global mypy options
 no_implicit_optional = "True"
 ignore_missing_imports = "True"
-warn_unused_configs = "True"
+# Off so the tests.* override below is not reported unused when checking app only
+warn_unused_configs = "False"
 warn_no_return = "False"
 warn_unused_ignores = "True"
 warn_return_any = "True"
@@ -93,9 +99,27 @@ disallow_untyped_defs = "True"
 disallow_untyped_calls = "True"
 disallow_incomplete_defs = "True"
 strict_equality = "True"
+# Tests are not type checked: fixtures and test functions stay unannotated
+exclude = ["^tests/"]
+
+[[tool.mypy.overrides]]
+# The exclude above does not apply to explicitly-passed files (e.g. the IDE
+# checking an open test file); this override silences those too
+module = "tests.*"
+ignore_errors = true
+
+[tool.pyright]
+# Keep the IDE (Pylance/pyright) from type checking tests too
+ignore = ["tests"]
 
 [tool.coverage.run]
 omit = ["app/__main__.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "slow: launches a real browser; excluded from the fast `make test` gate",
+    "e2e: needs docker compose services (Floci); excluded from the fast `make test` gate",
+]

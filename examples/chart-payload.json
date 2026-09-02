@@ -1,0 +1,35 @@
+{
+  "language": "en",
+  "device": "desktop",
+  "chart_config": {
+    "chartType": "column",
+    "description": "Sales data for different months showing revenue trends",
+    "theme": "primary",
+    "title": "Monthly Sales Revenue",
+    "subtitle": "Revenue in thousands of pounds for Q1 20",
+    "id": "sales-chart-001",
+    "caption": "Source: Internal sales data",
+    "legend": false,
+    "series": [
+      {
+        "data": [45.5, 52.3, 48.7, 61.2, 58.9, 67.1],
+        "dataLabels": false,
+        "name": "Sales Revenue (£000s)"
+      }
+    ],
+    "xAxis": {
+      "categories": ["January", "February", "March", "April", "May", "June"],
+      "title": "Month",
+      "type": "linear"
+    },
+    "yAxis": {
+      "title": "Revenue (£000s)"
+    },
+    "percentageHeightDesktop": 35,
+    "percentageHeightMobile": 90,
+    "download": {
+      "title": "Download chart data",
+      "itemsList": []
+    }
+  }
+}

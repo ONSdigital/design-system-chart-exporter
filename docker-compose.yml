@@ -12,6 +12,35 @@ services:
     volumes:
       - ./:/app
       - venv:/app/.venv
+    # Chromium crashes cryptically on the 64MB default shared memory size
+    shm_size: "2gb"
+    environment:
+      - CHART_EXPORTER_S3_BUCKET=ons-charts
+      - CHART_EXPORTER_S3_ENDPOINT_URL=http://floci:4566
+      # Floci accepts any dummy credentials — never put real AWS credentials here
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    depends_on:
+      floci:
+        condition: service_healthy
+
+  floci:
+    # The -compat variant ships the aws CLI, needed by the bucket init hook
+    image: floci/floci:latest-compat
+    ports:
+      - "4566:4566"
+    environment:
+      # URLs returned by Floci must use the compose hostname, not localhost
+      - FLOCI_HOSTNAME=floci
+    volumes:
+      # Floci runs these LocalStack-style init hooks once the emulator is ready
+      - ./scripts/floci-init:/etc/localstack/init/ready.d:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
 
 volumes:
   venv:

@@ -46,9 +46,25 @@ pre-commit:  ## Run all pre-commit hooks across the repository.
 install-pre-commit:  ## Install the local git pre-commit hooks.
 	uv run pre-commit install
 
+# Vendored DS templates are needed by the templating tests; downloaded once
+templates/components:
+	./scripts/load-design-system-templates.sh $$(cat .design-system-version)
+
+.PHONY: design-system
+design-system:  ## Download and vendor the ONS Design System templates and assets.
+	./scripts/load-design-system-templates.sh $$(cat .design-system-version)
+
+.PHONY: playwright-browsers
+playwright-browsers:  ## Install the Chromium browser used by the renderer.
+	uv run playwright install chromium
+
 .PHONY: test
-test:  ## Run the tests and check coverage.
-	uv run pytest -n auto --cov=app --cov-report term-missing --cov-fail-under=100
+test: | templates/components  ## Run the fast tests (no browser, no Floci) and check coverage.
+	uv run pytest -n auto -m "not slow and not e2e" --cov=app --cov-report term-missing --cov-fail-under=100
+
+.PHONY: test-all
+test-all: playwright-browsers | templates/components  ## Run all tests including slow browser and e2e tests.
+	uv run pytest -n auto --cov=app --cov-report term-missing
 
 .PHONY: mypy
 mypy:  ## Run mypy.
@@ -58,9 +74,19 @@ mypy:  ## Run mypy.
 pylint:  ## Run pylint.
 	uv run pylint app scripts --reports=n --output-format=colorized --rcfile=.pylintrc -j 0
 
+.PHONY: example
+example:  ## POST the sample chart payload to a locally running service.
+	@curl -s -X POST "http://localhost:$(WEB_PORT)/charts" \
+		-H "Content-Type: application/json" \
+		--data @examples/chart-payload.json | python3 -m json.tool
+
+.PHONY: up-deps
+up-deps: | templates/components  ## Start only the local infrastructure (Floci S3) for host-run development.
+	docker compose up -d --wait floci
+
 .PHONY: run
-run:  ## Run the app with uvicorn.
-	uv run uvicorn app.main:app --host 0.0.0.0 --port $(WEB_PORT) --reload
+run: | templates/components  ## Run the app on the host with uvicorn (loads .env if present).
+	uv run $(if $(wildcard .env),--env-file .env,) uvicorn app.main:app --host 0.0.0.0 --port $(WEB_PORT) --reload
 
 .PHONY: install
 install:  ## Install the dependencies excluding dev.
@@ -89,7 +115,7 @@ compose-pull:  ## Pull Docker containers
 	docker compose pull
 
 .PHONY: compose-up
-compose-up:  ## Start Docker containers
+compose-up: | templates/components  ## Start Docker containers (vendors the DS templates first if missing)
 	docker compose up --detach
 
 .PHONY: compose-down
@@ -109,6 +135,8 @@ docker-logs:  ## Show logs from the main application's Docker container
 	docker compose logs --follow web
 
 # Aliases
+.PHONY: up
+up: compose-up
 .PHONY: start
 start: compose-up
 .PHONY: stop

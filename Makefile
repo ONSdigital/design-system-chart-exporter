@@ -76,7 +76,7 @@ pylint:  ## Run pylint.
 
 .PHONY: example
 example:  ## POST the sample chart payload to a locally running service.
-	curl -s -X POST "http://localhost:$(WEB_PORT)/charts" \
+	@curl -s -X POST "http://localhost:$(WEB_PORT)/charts" \
 		-H "Content-Type: application/json" \
 		--data @examples/chart-payload.json | python3 -m json.tool
 

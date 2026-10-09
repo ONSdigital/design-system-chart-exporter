@@ -1,0 +1,12 @@
+---
+# hadolint configuration (https://github.com/hadolint/hadolint)
+ignored:
+  # DL3008: pin versions in apt-get install. We install a small, fixed set of
+  # Chromium build/runtime helpers (curl, unzip, ca-certificates) whose exact
+  # versions track the slim base image; pinning them would break on every base
+  # image refresh with no security benefit here.
+  - DL3008
+  # DL3066: non-numeric user-id. We run as the named unprivileged `exporter`
+  # user (created with useradd) for readability; the name is resolvable inside
+  # the image, which is where it is used.
+  - DL3066

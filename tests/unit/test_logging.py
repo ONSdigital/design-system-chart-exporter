@@ -9,10 +9,13 @@ from app.logging import (
     _add_exception_info,
     _add_severity,
     _add_spec_version,
+    _add_trace_id,
     _get_renderer,
     configure_logging,
     get_logger,
+    trace_id_var,
 )
+from tests.helpers import run_python
 
 
 @pytest.mark.parametrize(
@@ -55,6 +58,22 @@ def test_add_spec_version_leaves_existing_value_untouched():
     event_dict = _add_spec_version(logger=None, method_name="info", event_dict={"spec_version": "v2"})
 
     assert event_dict["spec_version"] == "v2"
+
+
+def test_add_trace_id_uses_contextvar_when_set():
+    token = trace_id_var.set("abc-123")
+    try:
+        event_dict = _add_trace_id(logger=None, method_name="info", event_dict={})
+    finally:
+        trace_id_var.reset(token)
+
+    assert event_dict["trace_id"] == "abc-123"
+
+
+def test_add_trace_id_omitted_outside_request_context():
+    event_dict = _add_trace_id(logger=None, method_name="info", event_dict={})
+
+    assert "trace_id" not in event_dict
 
 
 def test_add_exception_info_leaves_event_dict_unchanged_without_exc_info():
@@ -281,3 +300,58 @@ def test_get_logger_with_custom_renderer(monkeypatch, capsys):
 
     output = capsys.readouterr().out.strip()
     assert output == "Custom log: custom event"
+
+
+def test_add_exception_info_uses_only_the_first_line_of_the_message():
+    """Exception notes (PEP 678) render as extra lines; the DP message is the exception line alone."""
+    exc = ValueError("bad thing")
+    exc.add_note("some context note")
+
+    event_dict = _add_exception_info(logger=None, method_name="error", event_dict={"exc_info": exc})
+
+    assert event_dict["errors"][0]["message"] == "ValueError: bad thing"
+
+
+def test_created_at_is_utc_iso8601(monkeypatch, capsys):
+    monkeypatch.setattr(logging_module, "LOG_LEVEL", logging.INFO)
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
+
+    get_logger().info("event")
+
+    logged = json.loads(capsys.readouterr().out)
+    assert logged["created_at"].endswith("Z")
+
+
+def test_configure_logging_reroutes_uvicorn_loggers_to_the_root_handler():
+    """Uvicorn installs its own handlers and stops propagation; both must be undone."""
+    names = ("uvicorn", "uvicorn.error", "uvicorn.access")
+    for name in names:
+        logging.getLogger(name).propagate = False
+        logging.getLogger(name).handlers = [logging.NullHandler()]
+
+    configure_logging(namespace="test-service", renderer=structlog.processors.JSONRenderer())
+
+    for name in names:
+        assert logging.getLogger(name).propagate is True
+        assert logging.getLogger(name).handlers == []
+
+
+@pytest.mark.parametrize(
+    ("env", "expected"),
+    [
+        ({}, "True"),
+        ({"LOG_AS_JSON": "false"}, "False"),
+        ({"LOG_AS_JSON": " TRUE "}, "True"),
+        ({"LOG_AS_JSON": "yes"}, "False"),
+    ],
+)
+def test_log_as_json_is_read_from_the_environment_at_import(env, expected):
+    assert run_python("from app.logging import LOG_AS_JSON; print(LOG_AS_JSON)", env) == expected
+
+
+@pytest.mark.parametrize(
+    ("env", "expected"),
+    [({}, "20"), ({"LOG_LEVEL": "debug"}, "10"), ({"LOG_LEVEL": "WARNING"}, "30"), ({"LOG_LEVEL": "nonsense"}, "20")],
+)
+def test_log_level_is_read_from_the_environment_at_import(env, expected):
+    assert run_python("from app.logging import LOG_LEVEL; print(LOG_LEVEL)", env) == expected

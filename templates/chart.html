@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="{{ language }}">
+    <head>
+        <meta charset="utf-8" />
+        {# Defence in depth: the page is fully self-contained, so the only
+           legitimate sources are our own inline style/script and data: URIs.
+           connect-src 'none' blocks WebSocket/fetch/XHR/EventSource/beacon at
+           the browser layer, so even attacker markup that reaches a |safe sink
+           in the (opaque) chart_config cannot open a network channel out of the
+           render context — closing the gap that context.route() leaves for
+           WebSocket/WebRTC. #}
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'"
+        />
+        <title>Chart</title>
+        <meta name="description" content="Rendered ONS Design System chart image." />
+        {# Assets are inlined (Markup-wrapped by the templating service): the
+           render context blocks all network access, so nothing may be fetched #}
+        <style>
+            {{ design_system_css }}
+        </style>
+    </head>
+    <body>
+        {% from "components/chart/_macro.njk" import onsChart %}
+        <div class="ons-container">{{ onsChart(chart_config) }}</div>
+        <script>
+            {{ design_system_js }}
+        </script>
+    </body>
+</html>

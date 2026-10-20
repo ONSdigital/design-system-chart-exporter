@@ -172,3 +172,8 @@ copier_scripts/
 
 # DS_Store files
 .DS_Store
+
+# Vendored ONS Design System templates and assets (make design-system)
+templates/components/
+templates/layout/
+templates/assets/
